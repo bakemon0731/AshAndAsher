@@ -28,15 +28,15 @@ public:
 	FGameplayAttributeData MaxArmor;
 	ATTRIBUTE_ACCESSORS_BASIC(UCombatAttributeSet, MaxArmor);
 
-	//Strength Attributes
-	UPROPERTY(BlueprintReadOnly, Category = "Strength",ReplicatedUsing=OnRep_Strength)
-	FGameplayAttributeData Strength;
-	ATTRIBUTE_ACCESSORS_BASIC(UCombatAttributeSet, Strength);
+	// Physical Power (物理攻撃力)
+	UPROPERTY(BlueprintReadOnly, Category = "PhysicalPower",ReplicatedUsing=OnRep_PhysicalPower)
+	FGameplayAttributeData PhysicalPower;
+	ATTRIBUTE_ACCESSORS_BASIC(UCombatAttributeSet, PhysicalPower);
 
-	UPROPERTY(BlueprintReadOnly, Category = "MaxStrength",ReplicatedUsing=OnRep_MaxStrength)
-	FGameplayAttributeData MaxStrength;
-	ATTRIBUTE_ACCESSORS_BASIC(UCombatAttributeSet, MaxStrength);
-	
+	// Magical Power (魔法攻撃力)
+	UPROPERTY(BlueprintReadOnly, Category = "MagicalPower",ReplicatedUsing=OnRep_MagicalPower)
+	FGameplayAttributeData MagicalPower;
+	ATTRIBUTE_ACCESSORS_BASIC(UCombatAttributeSet, MagicalPower);
 	
 protected:
 	UFUNCTION()
@@ -54,18 +54,17 @@ protected:
 	}
 
 	UFUNCTION()
-	void OnRep_Strength(const FGameplayAttributeData& OldValue) const
+	void OnRep_PhysicalPower(const FGameplayAttributeData& OldValue) const
 	{
-		GAMEPLAYATTRIBUTE_REPNOTIFY(UCombatAttributeSet, Strength, OldValue);
-		// ↑ Strength が変更されたことをゲーム全体に通知
+		GAMEPLAYATTRIBUTE_REPNOTIFY(UCombatAttributeSet, PhysicalPower, OldValue);
 	}
 
 	UFUNCTION()
-	void OnRep_MaxStrength(const FGameplayAttributeData& OldValue) const
+	void OnRep_MagicalPower(const FGameplayAttributeData& OldValue) const
 	{
-		GAMEPLAYATTRIBUTE_REPNOTIFY(UCombatAttributeSet, MaxStrength, OldValue);
-		// ↑ MaxStrength が変更されたことをゲーム全体に通知
+		GAMEPLAYATTRIBUTE_REPNOTIFY(UCombatAttributeSet, MagicalPower, OldValue);
 	}
+	
 	
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 	// ↑ 「このクラスの 属性をネットワーク同期してね」とエンジンに指示する関数

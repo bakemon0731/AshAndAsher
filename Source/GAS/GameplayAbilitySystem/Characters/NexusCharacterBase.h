@@ -41,9 +41,9 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Ability System")
 	TObjectPtr<class UAC_SpellComponent> SpellManagerComponent;
 	
-	//DeriveEffectを初期化時に一度だけ適用。
-	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category = "Ability System")
-	TArray<TSubclassOf<UGameplayEffect>> DerivedStatEffects;
+	//キャラクターにAC_StatComponentを追加
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Ability System")
+	TObjectPtr<class UAC_StatComponent> StatManagerComponent;
 	
 	// インターフェース関数のオーバーライド宣言
 	virtual int32 GetTeamNumber() const override;

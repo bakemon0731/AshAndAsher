@@ -23,7 +23,6 @@ public:
 private:
 	// 属性のキャプチャ定義
 	FGameplayEffectAttributeCaptureDefinition ArmorDef;
-	FGameplayEffectAttributeCaptureDefinition StrengthDef;
-	FGameplayEffectAttributeCaptureDefinition WillPowerDef;
-	
+	FGameplayEffectAttributeCaptureDefinition PhysicalPowerDef;
+	FGameplayEffectAttributeCaptureDefinition MagicalPowerDef;
 };

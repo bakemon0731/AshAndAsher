@@ -11,6 +11,7 @@
 #include "GAS/GamePlayAbilitySystem/AttributeSets/CombatAttributeSet.h"
 #include "GAS/GameplayAbilitySystem/AttributeSets/PrimaryAttributeSet.h"
 #include "GAS/SpellSystem/SpellComponent/AC_SpellComponent.h"
+#include "GAS/StatSystem/AC_StatComponent.h"
 
 // Sets default values
 ANexusCharacterBase::ANexusCharacterBase()
@@ -50,6 +51,8 @@ ANexusCharacterBase::ANexusCharacterBase()
 	PrimaryAttributeSet = CreateDefaultSubobject<UPrimaryAttributeSet>(TEXT("PrimaryAttributeSet"));
 	//AC_SpellComponentを追加
 	SpellManagerComponent = CreateDefaultSubobject<UAC_SpellComponent>(TEXT("SpellManagerComponent"));
+	//AC_StatComponentを追加
+	StatManagerComponent = CreateDefaultSubobject<UAC_StatComponent>(TEXT("StatManagerComponent"));
 }
 
 int32 ANexusCharacterBase::GetTeamNumber() const
@@ -98,21 +101,6 @@ void ANexusCharacterBase::PossessedBy(AController* NewController)
 		AbilitySystemComponent->InitAbilityActorInfo(this, this);
 		// GA_CastSelectedSpell を含む
 		GrantAbilities(StartingAbilities);
-		
-		// 派生ステータス計算用のInfinite Effectを適用
-		for (TSubclassOf<UGameplayEffect> EffectClass : DerivedStatEffects)
-		{
-			if(EffectClass)
-			{
-				//コンテキストを作成。
-				FGameplayEffectContextHandle Context = AbilitySystemComponent->MakeEffectContext();
-				FGameplayEffectSpecHandle Spec = AbilitySystemComponent->MakeOutgoingSpec(EffectClass,1.f,Context);
-				if (Spec.IsValid())
-				{
-					AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*Spec.Data.Get());
-				}
-			}
-		}
 		
 		if (SpellManagerComponent)
 		{

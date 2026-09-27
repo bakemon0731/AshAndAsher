@@ -21,6 +21,7 @@ UBasicAttributeSet::UBasicAttributeSet()
     MaxShield = 100.f;
    MoveSpeed = 500.f;
    MaxMoveSpeed = 500.f;
+   MaxMemoryCapacity = 0.f;
 }
 
 //変数の同期設定
@@ -36,6 +37,7 @@ void UBasicAttributeSet::GetLifetimeReplicatedProps(TArray<class FLifetimeProper
     DOREPLIFETIME_CONDITION_NOTIFY(UBasicAttributeSet, MaxShield, COND_None, REPNOTIFY_Always);
     DOREPLIFETIME_CONDITION_NOTIFY(UBasicAttributeSet, MoveSpeed, COND_None, REPNOTIFY_Always);
     DOREPLIFETIME_CONDITION_NOTIFY(UBasicAttributeSet, MaxMoveSpeed, COND_None, REPNOTIFY_Always);
+   DOREPLIFETIME_CONDITION_NOTIFY(UBasicAttributeSet, MaxMemoryCapacity, COND_None, REPNOTIFY_Always);
 }
 
 //値の制限
