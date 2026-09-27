@@ -4,7 +4,7 @@
 #include "AC_SpellComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "Algo/Sort.h"
-#include "GAS/GameplayAbilitySystem/AttributeSets/PrimaryAttributeSet.h"
+#include "GAS/GameplayAbilitySystem/AttributeSets/BasicAttributeSet.h"
 
 
 // Sets default values for this component's properties
@@ -215,9 +215,9 @@ int32 UAC_SpellComponent::GetMaxMemoryCapacity() const
 {
 	if (CachedASC)
 	{
-		if (const UPrimaryAttributeSet* PrimarySet = CachedASC->GetSet<UPrimaryAttributeSet>())
+		if (const UBasicAttributeSet* BasicSet = CachedASC->GetSet<UBasicAttributeSet>())
 		{
-			return FMath::RoundToInt(PrimarySet->GetMaxMemoryCapacity());
+			return FMath::RoundToInt(BasicSet->GetMaxMemoryCapacity());
 		}
 	}
 	// フォールバック値

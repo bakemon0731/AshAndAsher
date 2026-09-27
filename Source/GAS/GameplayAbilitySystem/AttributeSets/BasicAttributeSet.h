@@ -62,6 +62,11 @@ public:	 // <<<ここ以降のメンバーは外部からアクセス可能
 	FGameplayAttributeData MaxMoveSpeed;
 	ATTRIBUTE_ACCESSORS_BASIC(UBasicAttributeSet, MaxMoveSpeed);
 	
+	//派生ステータス：知識から算出される、魔法の最大記憶容量
+	UPROPERTY(BlueprintReadOnly,Category= "Derived",ReplicatedUsing=OnRep_MaxMemoryCapacity);
+	FGameplayAttributeData MaxMemoryCapacity;
+	ATTRIBUTE_ACCESSORS_BASIC(UBasicAttributeSet, MaxMemoryCapacity);
+	
 public:
 	// ネットワークで同期時に呼ばれる
 	
@@ -119,6 +124,13 @@ public:
 	void OnRep_MaxMoveSpeed(const FGameplayAttributeData& OldValue) const
 	{
 		GAMEPLAYATTRIBUTE_REPNOTIFY(UBasicAttributeSet, MaxMoveSpeed, OldValue);
+	}
+	
+	//最大記憶容量が変更されたことをゲーム全体に通知
+	UFUNCTION()
+	void OnRep_MaxMemoryCapacity(const FGameplayAttributeData& OldValue) const
+	{
+		GAMEPLAYATTRIBUTE_REPNOTIFY(UBasicAttributeSet,MaxMemoryCapacity,OldValue);
 	}
 	
 	// 「このクラスの Health、MaxHealth、Stamina、MaxStamina をネットワーク同期してね」とエンジンに指示する関数

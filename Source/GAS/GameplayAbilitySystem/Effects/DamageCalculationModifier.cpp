@@ -14,13 +14,13 @@ UDamageCalculationModifier::UDamageCalculationModifier()
 	ArmorDef = FGameplayEffectAttributeCaptureDefinition(UCombatAttributeSet::GetArmorAttribute(),EGameplayEffectAttributeCaptureSource::Target,false);
 	RelevantAttributesToCapture.Add(ArmorDef);
 	
-	// SourceのStrengthをキャプチャ
-	StrengthDef = FGameplayEffectAttributeCaptureDefinition(UCombatAttributeSet::GetStrengthAttribute(),EGameplayEffectAttributeCaptureSource::Source,false);
-	RelevantAttributesToCapture.Add(StrengthDef);
+	// SourceのPhysicalPowerをキャプチャ
+	PhysicalPowerDef = FGameplayEffectAttributeCaptureDefinition(UCombatAttributeSet::GetPhysicalPowerAttribute(),EGameplayEffectAttributeCaptureSource::Source,false);
+	RelevantAttributesToCapture.Add(PhysicalPowerDef);
 	
-	//SourceのWillpowerをキャプチャ（魔法ダメージ用）
-	WillPowerDef = FGameplayEffectAttributeCaptureDefinition(UCombatAttributeSet::GetStrengthAttribute(),EGameplayEffectAttributeCaptureSource::Source,false);
-	RelevantAttributesToCapture.Add(WillPowerDef);
+	// SourceのMagicalPowerをキャプチャ
+	MagicalPowerDef = FGameplayEffectAttributeCaptureDefinition(UCombatAttributeSet::GetMagicalPowerAttribute(),EGameplayEffectAttributeCaptureSource::Source,false);
+	RelevantAttributesToCapture.Add(MagicalPowerDef);
 }
 
 float UDamageCalculationModifier::CalculateBaseMagnitude_Implementation(const FGameplayEffectSpec& Spec) const
@@ -36,10 +36,10 @@ float UDamageCalculationModifier::CalculateBaseMagnitude_Implementation(const FG
 	// 各Attributeの取得
 	float TargetArmor = 0.f;
 	GetCapturedAttributeMagnitude(ArmorDef,Spec,EvaluateParameters,TargetArmor);
-	float SourceStrength = 0.f;
-	GetCapturedAttributeMagnitude(StrengthDef,Spec,EvaluateParameters,SourceStrength);
-	float SourceWillPower = 0.f;
-	GetCapturedAttributeMagnitude(WillPowerDef,Spec,EvaluateParameters,SourceStrength);
+	float SourcePhysicalPower = 0.f;
+	GetCapturedAttributeMagnitude(PhysicalPowerDef,Spec,EvaluateParameters,SourcePhysicalPower);
+	float SourceMagicalPower = 0.f;
+	GetCapturedAttributeMagnitude(MagicalPowerDef,Spec,EvaluateParameters,SourceMagicalPower);
 	
 	// SetByCallerからBaseDamageを取得
 	float BaseDamage = Spec.GetSetByCallerMagnitude(FGameplayTag::RequestGameplayTag(FName("Data.Damage")),false,0.0f);
@@ -51,11 +51,11 @@ float UDamageCalculationModifier::CalculateBaseMagnitude_Implementation(const FG
 	float OffensiveMultiplier = 1.0f;
 	if (bIsPhysical)
 	{
-		OffensiveMultiplier = 1.0f + (0.05f * SourceStrength);
+		OffensiveMultiplier = 1.0f + (0.05f *SourcePhysicalPower);
 	}
 	else if (bIsMagic)
 	{
-		OffensiveMultiplier = 1.0f + (0.03f * SourceWillPower);
+		OffensiveMultiplier = 1.0f + (0.03f * SourceMagicalPower);
 	}
 	
 	// ダメージ計算

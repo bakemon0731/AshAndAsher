@@ -18,6 +18,11 @@ class GAS_API UPrimaryAttributeSet : public UAttributeSet
 public:
 	UPrimaryAttributeSet();
 	
+	// 筋力：物理ダメージの基礎
+	UPROPERTY(BlueprintReadOnly,Category= "Primary",ReplicatedUsing=OnRep_Strength)
+	FGameplayAttributeData Strength;
+	ATTRIBUTE_ACCESSORS_BASIC(UPrimaryAttributeSet, Strength);
+	
 	// 知識：魔法の記憶容量
 	UPROPERTY(BlueprintReadOnly,Category= "Primary",ReplicatedUsing=OnRep_Knowledge)
 	FGameplayAttributeData Knowledge;
@@ -37,15 +42,19 @@ public:
 	UPROPERTY(BlueprintReadOnly,Category= "Primary",ReplicatedUsing=OnRep_Vitality);
 	FGameplayAttributeData Vitality;
 	ATTRIBUTE_ACCESSORS_BASIC(UPrimaryAttributeSet, Vitality);
+
+public:
 	
-	//派生ステータス：知識から算出される、魔法の最大記憶容量
-	UPROPERTY(BlueprintReadOnly,Category= "Derived",ReplicatedUsing=OnRep_MaxMemoryCapacity);
-	FGameplayAttributeData MaxMemoryCapacity;
-	ATTRIBUTE_ACCESSORS_BASIC(UPrimaryAttributeSet, MaxMemoryCapacity);
+	//筋力が変更されたことをゲーム全体に通知
+	UFUNCTION()
+	void OnRep_Strength(const FGameplayAttributeData& OldValue) const
+	{
+		GAMEPLAYATTRIBUTE_REPNOTIFY(UPrimaryAttributeSet,Strength,OldValue);
+	}
 	
 	//知識が変更されたことをゲーム全体に通知
 	UFUNCTION()
-	void OnRep_knowledge(const FGameplayAttributeData& OldValue) const
+	void OnRep_Knowledge(const FGameplayAttributeData& OldValue) const
 	{
 		GAMEPLAYATTRIBUTE_REPNOTIFY(UPrimaryAttributeSet,Knowledge,OldValue);
 	}
@@ -69,13 +78,6 @@ public:
 	void OnRep_Vitality(const FGameplayAttributeData& OldValue) const
 	{
 		GAMEPLAYATTRIBUTE_REPNOTIFY(UPrimaryAttributeSet,Vitality,OldValue);
-	}
-	
-	//最大記憶容量が変更されたことをゲーム全体に通知
-	UFUNCTION()
-	void OnRep_MaxMemoryCapacity(const FGameplayAttributeData& OldValue) const
-	{
-		GAMEPLAYATTRIBUTE_REPNOTIFY(UPrimaryAttributeSet,MaxMemoryCapacity,OldValue);
 	}
 	
 	//変数の同期
