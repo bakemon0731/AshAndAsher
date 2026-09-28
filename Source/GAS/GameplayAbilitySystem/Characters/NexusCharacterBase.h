@@ -38,12 +38,16 @@ public:
 	class UPrimaryAttributeSet* PrimaryAttributeSet;
 	
 	//キャラクターにAC_SpellComponentを追加。
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Ability System")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spells")
 	TObjectPtr<class UAC_SpellComponent> SpellManagerComponent;
 	
 	//キャラクターにAC_StatComponentを追加
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Ability System")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stats")
 	TObjectPtr<class UAC_StatComponent> StatManagerComponent;
+	
+	//キャラクターにAC_EquipmentComponentを追加
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Equipment")
+	TObjectPtr<class UAC_EquipmentComponent> EquipmentManagerComponent;
 	
 	// インターフェース関数のオーバーライド宣言
 	virtual int32 GetTeamNumber() const override;
