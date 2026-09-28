@@ -5,6 +5,7 @@
 #include "AbilitySystemBlueprintLibrary.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GAS/EquipmentSystem/EquipmentComponent/AC_EquipmentComponent.h"
 #include "GAS/GamePlayAbilitySystem/NexusAbilitySystemComponent.h"
 #include "GAS/GamePlayAbilitySystem/Abilities/NexusGameplayAbility.h"
 #include "GAS/GamePlayAbilitySystem/AttributeSets/BasicAttributeSet.h"
@@ -12,6 +13,7 @@
 #include "GAS/GameplayAbilitySystem/AttributeSets/PrimaryAttributeSet.h"
 #include "GAS/SpellSystem/SpellComponent/AC_SpellComponent.h"
 #include "GAS/StatSystem/AC_StatComponent.h"
+#include "GAS/EquipmentSystem/EquipmentComponent/AC_EquipmentComponent.h"
 
 // Sets default values
 ANexusCharacterBase::ANexusCharacterBase()
@@ -53,6 +55,8 @@ ANexusCharacterBase::ANexusCharacterBase()
 	SpellManagerComponent = CreateDefaultSubobject<UAC_SpellComponent>(TEXT("SpellManagerComponent"));
 	//AC_StatComponentを追加
 	StatManagerComponent = CreateDefaultSubobject<UAC_StatComponent>(TEXT("StatManagerComponent"));
+	//AC_EquipmentComponentを追加
+	EquipmentManagerComponent = CreateDefaultSubobject<UAC_EquipmentComponent>(TEXT("EquipmentManagerComponent"));
 }
 
 int32 ANexusCharacterBase::GetTeamNumber() const
@@ -105,6 +109,11 @@ void ANexusCharacterBase::PossessedBy(AController* NewController)
 		if (SpellManagerComponent)
 		{
 			SpellManagerComponent->InitializeKnownSpells(AbilitySystemComponent);
+		}
+		
+		if(EquipmentManagerComponent)
+		{
+			EquipmentManagerComponent->InitializeEquipmentSystem(AbilitySystemComponent);
 		}
 	}
 	
