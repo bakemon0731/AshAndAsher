@@ -2,7 +2,8 @@
 
 
 #include "NexusPlayerbase.h"
-#include "GAS/EquipmentSystem/EquipmentComponent/AC_EquipmentComponent.h"
+#include "GAS/Interface/Interactable.h"
+
 
 
 // Sets default values
@@ -17,6 +18,7 @@ void ANexusPlayerbase::RegisterNearbyInteractable(AActor* Interactable)
 	if (Interactable && Interactable->Implements<UInteractable>())
 	{
 		NearbyInteractables.AddUnique(Interactable);
+		
 	}
 }
 

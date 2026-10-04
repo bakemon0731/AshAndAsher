@@ -5,7 +5,6 @@
 #include "CoreMinimal.h"
 #include "GAS/GameplayAbilitySystem/Characters/NexusCharacterBase.h"
 #include "GAS/Interface/PlayerInerface.h"
-#include "GAS/EquipmentSystem/WorldItem/WorldItemActor.h"
 #include "NexusPlayerbase.generated.h"
 
 //イベントディスパッチャーの宣言

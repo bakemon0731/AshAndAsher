@@ -91,6 +91,7 @@ void AWorldItemActor::OnInteractionSphereBeginOverlap(UPrimitiveComponent* Overl
 	if (ANexusPlayerbase* Character = Cast<ANexusPlayerbase>(OtherActor))
 	{
 		Character->RegisterNearbyInteractable(this);
+		SetHighlighted(true);
 	}
 }
 
@@ -100,6 +101,7 @@ void AWorldItemActor::OnInteractionSphereEndOverlap(UPrimitiveComponent* Overlap
 	if (ANexusPlayerbase* Character = Cast<ANexusPlayerbase>(OtherActor))
 	{
 		Character->UnregisterNearbyInteractable(this);
+		SetHighlighted(false);
 	}
 }
 
