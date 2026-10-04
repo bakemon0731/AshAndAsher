@@ -2,8 +2,7 @@
 
 
 #include "AC_EquipmentComponent.h"
-
-#include "IDetailTreeNode.h"
+#include "GAS/EquipmentSystem/WorldItem/WorldItemActor.h"
 #include "Net/UnrealNetwork.h"
 
 
@@ -351,6 +350,76 @@ bool UAC_EquipmentComponent::AddItemToInventory(UEquipmentDataAsset* Item)
 	OnRep_Inventory();
 	return true;
 }
+
+void UAC_EquipmentComponent::RequestDropItem(FGuid InstanceID)
+{
+	Server_DropItem(InstanceID);	
+}
+
+void UAC_EquipmentComponent::RequestPickupItem(class AWorldItemActor* WorldItem)
+{
+	Server_PickupItem(WorldItem);
+}
+
+void UAC_EquipmentComponent::Server_PickupItem_Implementation(class AWorldItemActor* WorldItem)
+{
+	if (!WorldItem || !WorldItem->ItemData)
+	{
+		return;
+	}
+	
+	// インベントリが満杯なら拾えない
+	if (!AddItemToInventory(WorldItem->ItemData))
+	{
+		return;
+	}
+	
+	WorldItem->Destroy();
+}
+
+void UAC_EquipmentComponent::Server_DropItem_Implementation(FGuid InstanceID)
+{
+	int32 InstanceIndex = INDEX_NONE;
+	for (int32 i = 0; i < InventoryItemsInstance.Num(); i++)
+	{
+		if (InventoryItemsInstance[i].InstanceID == InstanceID)
+		{
+			InstanceIndex = i;
+			break;
+		}
+	}
+	
+	if (InstanceIndex == INDEX_NONE )
+	{
+		return;
+	}
+	
+	UEquipmentDataAsset* Item = InventoryItemsInstance[InstanceIndex].Item;
+	AActor* Owner = GetOwner();
+	// 共通クラスではなく、アイテムごとに指定されたクラスを使う
+	TSubclassOf<AWorldItemActor> ClassToSpawn = Item ? Item->WorldItemClass : nullptr;
+	if (!Item || !Owner || !ClassToSpawn)
+	{
+		return;
+	}
+	
+	// オーナーの少し前方にスポーン
+	FVector SpawnLocation = Owner->GetActorLocation() + Owner->GetActorForwardVector() * 150.0f;
+	FTransform SpawnTransform(Owner->GetActorRotation(),SpawnLocation);
+	
+	// 遅延スポーン（Deferred Spawn）による生成
+	AWorldItemActor* SpawnedItem = GetWorld()->SpawnActorDeferred<AWorldItemActor>(ClassToSpawn, SpawnTransform, Owner);
+	if (SpawnedItem)
+	{
+		SpawnedItem->ItemData = Item; // BeginPlayより前にデータをセット
+		SpawnedItem->FinishSpawning(SpawnTransform); // ここでBeginPlayが走る
+	}
+	
+	InventoryItemsInstance.RemoveAt(InstanceIndex);
+	OnRep_Inventory();
+}
+
+
 
 void UAC_EquipmentComponent::Server_MoveItemInInventory_Implementation(FGuid InstanceID, int32 NewGridX, int32 NewGridY)
 {

@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GAS/GameplayAbilitySystem/Characters/NexusCharacterBase.h"
 #include "GAS/Interface/PlayerInerface.h"
+#include "GAS/EquipmentSystem/WorldItem/WorldItemActor.h"
 #include "NexusPlayerbase.generated.h"
 
 //イベントディスパッチャーの宣言
@@ -26,7 +27,26 @@ public:
 	
 	UPROPERTY(BlueprintAssignable, Category = "Ability State")
 	FOnCastCanceledDelegate OnCastCanceled;
+	
+public:
+	
+	UFUNCTION(BlueprintCallable, Category = "Interaction")
+	void RegisterNearbyInteractable(AActor* Interactable);
 
+	UFUNCTION(BlueprintCallable, Category = "Interaction")
+	void UnregisterNearbyInteractable(AActor* Interactable);
+
+	UFUNCTION(BlueprintPure, Category = "Interaction")
+	AActor* GetClosestInteractable() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Interaction")
+	void TryInteract();
+
+
+protected:
+	UPROPERTY()
+	TArray<TObjectPtr<AActor>> NearbyInteractables;
+	
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;

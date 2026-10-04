@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
 #include "GameplayEffect.h"
+#include "GAS/Enum/Rarity.h"
 #include "EquipmentDataAsset.generated.h"
 
 /**
@@ -69,4 +70,12 @@ public:
 	//グリッド高さ
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment",meta = (ClampMin = "1"))
 	int32 GridHeight = 1;
+	
+	//このBPクラスとしてワールドにスポーンさせる
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment")
+	TSubclassOf<class AWorldItemActor> WorldItemClass;
+	
+	// このアイテムのレアリティ
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment")
+	EItemRarity Rarity = EItemRarity::Common;
 };

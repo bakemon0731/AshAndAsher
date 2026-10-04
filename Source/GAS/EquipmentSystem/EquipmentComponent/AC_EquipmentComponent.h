@@ -93,6 +93,7 @@ public:
 	//初期アイテムを付与する
 	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="Equipment")
 	TArray<TObjectPtr<UEquipmentDataAsset>> StartingInventoryItems;
+
 	
 public:
 	
@@ -129,6 +130,21 @@ public:
 	//初期アイテムを付与するヘルパー関数
 	UFUNCTION(Blueprintable,Category="Equipment")
 	bool AddItemToInventory(UEquipmentDataAsset* Item);
+
+	// インベントリのアイテムをワールドに落とす
+	UFUNCTION(BlueprintCallable, Category="Equipment")
+	void RequestDropItem(FGuid InstanceID);
+	
+	UFUNCTION(Server,Reliable)
+	void Server_DropItem(FGuid InstanceID);
+	
+	//ワールドのアイテムを拾う
+	UFUNCTION(BlueprintCallable,Category="Equipment")
+	void RequestPickupItem(class AWorldItemActor* WorldItem);
+	
+	UFUNCTION(Server,Reliable)
+	void Server_PickupItem(class AWorldItemActor* WorldItem);
+
 protected:
 
 	// 登録されたAbility System Componentのキャッシュ
