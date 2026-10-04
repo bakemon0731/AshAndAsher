@@ -16,23 +16,14 @@
 UENUM(BlueprintType)
 enum class EEquipmentSlot : uint8
 {
-	//頭
-	Head        UMETA(DisplayName = "Head"),
-	//胴体
-	Chest       UMETA(DisplayName = "Chest"),
-	//手
-	Hands       UMETA(DisplayName = "Hands"),
-	//脚
-	Legs        UMETA(DisplayName = "Legs"),
-	//足
-	Feet        UMETA(DisplayName = "Feet"),
-	//マント
-	Cloak       UMETA(DisplayName = "Cloak"),
-	//指輪
-	Ring        UMETA(DisplayName = "Ring"),
-	//ネックレス
-	Pendant		UMETA(DisplayName = "Pendant"),
-	//無し
+	Head        UMETA(DisplayName = "頭"),
+	Chest       UMETA(DisplayName = "胴体"),
+	Hands       UMETA(DisplayName = "手"),
+	Legs        UMETA(DisplayName = "脚"),
+	Feet        UMETA(DisplayName = "足"),
+	Cloak       UMETA(DisplayName = "マント"),
+	Ring        UMETA(DisplayName = "指輪"),
+	Pendant		UMETA(DisplayName = "ネックレス"),
 	None        UMETA(DisplayName = "None")
 };
 
