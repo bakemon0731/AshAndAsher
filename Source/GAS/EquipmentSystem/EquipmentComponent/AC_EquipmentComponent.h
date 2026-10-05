@@ -145,6 +145,31 @@ public:
 	UFUNCTION(Server,Reliable)
 	void Server_PickupItem(class AWorldItemActor* WorldItem);
 
+	// 自分のインベントリにある指定インスタンスを、別のコンポーネントへ移動する（死体から回収する等）
+	UFUNCTION(BlueprintCallable,Category="Equipment")
+	void RequestTransferItem(FGuid InstanceID,UAC_EquipmentComponent* TargetComponent);
+	
+	UFUNCTION(Server,Reliable)
+	void Server_TransferItem(FGuid InstanceID,UAC_EquipmentComponent* TargetComponent);
+	
+	// サーバー上で直接呼ぶ内部ロジック（権限チェック済み前提、RPCではない）
+	void Internal_MoveInstance(FGuid InstanceID, int32 NewGridX, int32 NewGridY);
+	bool Internal_RemoveInstance(FGuid InstanceID, FInventoryItemInstance& OutRemoved);
+	
+	// 遠隔コンポーネント(死体等)のアイテムを「自分(プレイヤー)」に転送する
+	UFUNCTION(BlueprintCallable, Category = "Equipment")
+	void RequestTransferFromRemote(UAC_EquipmentComponent* RemoteComponent, FGuid InstanceID);
+
+	UFUNCTION(Server, Reliable)
+	void Server_TransferFromRemote(UAC_EquipmentComponent* RemoteComponent, FGuid InstanceID);
+
+	// 遠隔コンポーネント(死体等)の中で、アイテムを並べ替える
+	UFUNCTION(BlueprintCallable, Category = "Equipment")
+	void RequestMoveRemoteItem(UAC_EquipmentComponent* RemoteComponent, FGuid InstanceID, int32 NewGridX, int32 NewGridY);
+
+	UFUNCTION(Server, Reliable)
+	void Server_MoveRemoteItem(UAC_EquipmentComponent* RemoteComponent, FGuid InstanceID, int32 NewGridX, int32 NewGridY);
+	
 protected:
 
 	// 登録されたAbility System Componentのキャッシュ
@@ -179,8 +204,6 @@ protected:
 	// 装備アイテムを外す際に、適用していたGameplay Effect（意思、知識）を削除する
 	void RemoveItemEffects(FEquippedItemEntry& Entry);
 	
-	// 指定したアイテムを保持するインベントリ内インスタンスを探す（見つからなければnullptr）
-	FInventoryItemInstance* FindInventoryInstanceByItem(UEquipmentDataAsset* Item);
 	
 	// 空いているグリッド座標を探す
 	bool FindFreeGridSlot(UEquipmentDataAsset* Item, int32& OutX, int32& OutY) const;

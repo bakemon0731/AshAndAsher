@@ -93,7 +93,8 @@ protected:
 	
 	virtual void OnRep_PlayerState() override;
 	
-	virtual void OnDeathTagChanged(const FGameplayTag CallbackTag, int32 NewCount);// 死亡タグが変化した時に呼ばれる関数（デフォルトでは何もしない）
+	// 死亡タグが変化した時に呼ばれる関数（デフォルトでは何もしない）
+	virtual void OnDeathTagChanged(const FGameplayTag CallbackTag, int32 NewCount);
 	
 	
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Damage")// 死亡時の処理を実装する関数

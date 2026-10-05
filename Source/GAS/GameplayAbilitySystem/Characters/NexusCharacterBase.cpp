@@ -193,8 +193,8 @@ TArray<FGameplayAbilitySpecHandle> ANexusCharacterBase::GrantAbilities//付与�
 	return AbilityHandles;
 }
 
-
-void ANexusCharacterBase::RemoveAbilities//ハンドルで削除
+//ハンドルで削除
+void ANexusCharacterBase::RemoveAbilities
 (TArray<FGameplayAbilitySpecHandle> AbilityHandlesToRemove)
 {
 	if (!AbilitySystemComponent || !HasAuthority())
@@ -210,7 +210,8 @@ void ANexusCharacterBase::RemoveAbilities//ハンドルで削除
 	SendAbilitiesChangedEvent();
 }
 
-void ANexusCharacterBase::SendAbilitiesChangedEvent()//アビリティの変更を知らせるゲームプレイイベントを送る関数
+//アビリティの変更を知らせるゲームプレイイベントを送る関数
+void ANexusCharacterBase::SendAbilitiesChangedEvent()
 {
 	FGameplayEventData EventData;//送るイベント用のデータ構造を作成
 	EventData.EventTag = FGameplayTag::RequestGameplayTag(FName("Event.Abilities.Changed"));//イベントのタグを設定
@@ -220,19 +221,21 @@ void ANexusCharacterBase::SendAbilitiesChangedEvent()//アビリティの変更�
 	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, EventData.EventTag, EventData);
 }
 
+//サーバー側から全クライアントにイベントを送信する関数の実装
 void ANexusCharacterBase::MultiSendGameplayEventToSelf_Implementation(AActor* TargetActor,
-                                                                      FGameplayEventData EventData)//サーバー側から全クライアントにイベントを送信する関数の実装
+                                                                      FGameplayEventData EventData)
 {
 	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(TargetActor, EventData.EventTag, EventData);
 }
 
-
-void ANexusCharacterBase::ServerSendGameplayEventToSelf_Implementation(FGameplayEventData EventData)// サーバー上で、このキャラクター（自身）に対して GameplayEvent を送る処理
+// サーバー上で、このキャラクター（自身）に対して GameplayEvent を送る処理
+void ANexusCharacterBase::ServerSendGameplayEventToSelf_Implementation(FGameplayEventData EventData)
 {
 	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, EventData.EventTag, EventData);
 }
 
-void ANexusCharacterBase::HandleDeath_Implementation()//死亡時の処理を実装する関数（ブループリントでオーバーライド可能）
+//死亡時の処理を実装する関数（ブループリントでオーバーライド可能）
+void ANexusCharacterBase::HandleDeath_Implementation()
 {
 	GetMesh()->SetSimulatePhysics(true);
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
