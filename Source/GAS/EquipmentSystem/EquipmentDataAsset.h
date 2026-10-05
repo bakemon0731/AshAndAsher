@@ -42,9 +42,9 @@ public:
 	UPROPERTY(EditAnywhere,BlueprintReadOnly, Category = "Equipment")
 	FText DisplayName;
 	
-	//説明
+	//付与されるアイテムステータス
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment", meta = (MultiLine = true))
-	FText Description;
+	FText ItemStatsGranted;
 	
 	//アイコン画像
 	UPROPERTY(EditAnywhere,BlueprintReadOnly, Category = "Equipment")
@@ -69,4 +69,9 @@ public:
 	// このアイテムのレアリティ
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment")
 	EItemRarity Rarity = EItemRarity::Common;
+	
+	// このアイテムの説明
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment",meta = (MultiLine = true))
+	FText Description;
+	
 };
