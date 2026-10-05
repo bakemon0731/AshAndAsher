@@ -6,6 +6,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "GAS/EquipmentSystem/EquipmentComponent/AC_EquipmentComponent.h"
 #include "GAS/GameplayAbilitySystem/Characters/PlayerCharacter/NexusPlayerbase.h"
+#include "GAS/BlueprintFunctionLibrary/RarityLibrary.h"
 #include "Net/UnrealNetwork.h"
 
 
@@ -50,17 +51,8 @@ FLinearColor AWorldItemActor::GetDisplayNameColor_Implementation() const
 		return FLinearColor::White;
 	}
 	
-	//レアリティそれぞれの色を設定。
-	switch (ItemData->Rarity)
-	{
-	case EItemRarity::Common:    return FLinearColor::White;
-	case EItemRarity::Uncommon:  return FLinearColor(0.1f, 0.8f, 0.1f); // 緑
-	case EItemRarity::Rare:      return FLinearColor(0.0f, 0.4f, 1.0f); // 青
-	case EItemRarity::Epic:      return FLinearColor(0.6f, 0.1f, 0.9f); // 紫
-	case EItemRarity::Legendary: return FLinearColor(1.0f, 0.6f, 0.0f); // 金
-	case EItemRarity::Artifact:  return FLinearColor(1.0f, 0.0f, 0.0f); // 赤
-	default: return FLinearColor::White;
-	}
+	// BlueprintFunctionLibrary から共通の色を取得して返す
+	return URarityLibrary::GetRarityColor(ItemData->Rarity);
 }
 
 void AWorldItemActor::OnInteract_Implementation(AActor* Interactor)
