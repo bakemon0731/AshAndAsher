@@ -41,6 +41,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Interaction")
 	void TryInteract();
 
+	//ルート画面を開く関数
+	UFUNCTION(BlueprintImplementableEvent, Category = "Loot")
+	void OpenLootScreen(AActor* LootSource);
 
 protected:
 	UPROPERTY()

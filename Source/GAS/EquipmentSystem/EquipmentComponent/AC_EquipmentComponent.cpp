@@ -124,18 +124,6 @@ void UAC_EquipmentComponent::RemoveItemEffects(FEquippedItemEntry& Entry)
 	Entry.AppliedEffectHandles.Empty();
 }
 
-FInventoryItemInstance* UAC_EquipmentComponent::FindInventoryInstanceByItem(UEquipmentDataAsset* Item)
-{
-	for (FInventoryItemInstance& Instance : InventoryItemsInstance)
-	{
-		if (Instance.Item == Item)
-		{
-			return &Instance;
-		}
-	}
-	return nullptr;
-}
-
 bool UAC_EquipmentComponent::FindFreeGridSlot(UEquipmentDataAsset* Item, int32& OutX, int32& OutY) const
 {
 	if (!Item)
@@ -361,6 +349,51 @@ void UAC_EquipmentComponent::RequestPickupItem(class AWorldItemActor* WorldItem)
 	Server_PickupItem(WorldItem);
 }
 
+void UAC_EquipmentComponent::RequestTransferItem(FGuid InstanceID, UAC_EquipmentComponent* TargetComponent)
+{
+	Server_TransferItem(InstanceID,TargetComponent);
+}
+
+void UAC_EquipmentComponent::Server_TransferItem_Implementation(FGuid InstanceID,
+	UAC_EquipmentComponent* TargetComponent)
+{
+	if (!TargetComponent || TargetComponent == this)
+	{
+		return;
+	}
+	
+	int32 InstanceIndex = INDEX_NONE;
+	for (int32 i = 0; i < InventoryItemsInstance.Num(); i++)
+	{
+		if (InventoryItemsInstance[i].InstanceID == InstanceID)
+		{
+			InstanceIndex = i;
+			break;
+		}
+	}
+	
+	if (InstanceIndex == INDEX_NONE)
+	{
+		return;
+	}
+	
+	UEquipmentDataAsset* Item = InventoryItemsInstance[InstanceIndex].Item;
+	if (!Item)
+	{
+		return;
+	}
+	
+	// 移動先に空きがあるか確認してから実行
+	if (!TargetComponent->AddItemToInventory(Item))
+	{
+		// 移動先が満杯なら何もしない
+		return;
+	}
+	
+	InventoryItemsInstance.RemoveAt(InstanceIndex);
+	OnRep_Inventory();
+}
+
 void UAC_EquipmentComponent::Server_PickupItem_Implementation(class AWorldItemActor* WorldItem)
 {
 	if (!WorldItem || !WorldItem->ItemData)
@@ -438,4 +471,73 @@ void UAC_EquipmentComponent::Server_MoveItemInInventory_Implementation(FGuid Ins
 	}
 }
 
+void UAC_EquipmentComponent::Internal_MoveInstance(FGuid InstanceID, int32 NewGridX, int32 NewGridY)
+{
+	for (FInventoryItemInstance& Instance : InventoryItemsInstance)
+	{
+		if (Instance.InstanceID == InstanceID)
+		{
+			if (CanPlaceItemAt(Instance.Item, NewGridX, NewGridY, InstanceID))
+			{
+				Instance.GridX = NewGridX;
+				Instance.GridY = NewGridY;
+				OnRep_Inventory();
+			}
+			return;
+		}
+	}
+}
 
+bool UAC_EquipmentComponent::Internal_RemoveInstance(FGuid InstanceID, FInventoryItemInstance& OutRemoved)
+{
+	for (int32 i = 0; i < InventoryItemsInstance.Num(); i++)
+	{
+		if (InventoryItemsInstance[i].InstanceID == InstanceID)
+		{
+			OutRemoved = InventoryItemsInstance[i];
+			InventoryItemsInstance.RemoveAt(i);
+			OnRep_Inventory();
+			return true;
+		}
+	}
+	return false;
+}
+
+void UAC_EquipmentComponent::RequestTransferFromRemote(UAC_EquipmentComponent* RemoteComponent, FGuid InstanceID)
+{
+	Server_TransferFromRemote(RemoteComponent, InstanceID);
+}
+
+void UAC_EquipmentComponent::Server_TransferFromRemote_Implementation(UAC_EquipmentComponent* RemoteComponent, FGuid InstanceID)
+{
+	if (!RemoteComponent || RemoteComponent == this)
+	{
+		return;
+	}
+
+	FInventoryItemInstance Removed;
+	if (!RemoteComponent->Internal_RemoveInstance(InstanceID, Removed))
+	{
+		return;
+	}
+
+	if (!AddItemToInventory(Removed.Item))
+	{
+		// 自分側に空きが無かった場合、相手側に戻す
+		RemoteComponent->AddItemToInventory(Removed.Item);
+	}
+}
+
+void UAC_EquipmentComponent::RequestMoveRemoteItem(UAC_EquipmentComponent* RemoteComponent, FGuid InstanceID, int32 NewGridX, int32 NewGridY)
+{
+	Server_MoveRemoteItem(RemoteComponent, InstanceID, NewGridX, NewGridY);
+}
+
+void UAC_EquipmentComponent::Server_MoveRemoteItem_Implementation(UAC_EquipmentComponent* RemoteComponent, FGuid InstanceID, int32 NewGridX, int32 NewGridY)
+{
+	if (!RemoteComponent)
+	{
+		return;
+	}
+	RemoteComponent->Internal_MoveInstance(InstanceID, NewGridX, NewGridY);
+}
