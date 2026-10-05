@@ -170,6 +170,14 @@ public:
 	UFUNCTION(Server, Reliable)
 	void Server_MoveRemoteItem(UAC_EquipmentComponent* RemoteComponent, FGuid InstanceID, int32 NewGridX, int32 NewGridY);
 	
+	// 遠隔コンポーネント(死体等)のアイテムをワールドに落とす要求
+	UFUNCTION(BlueprintCallable, Category = "Equipment")
+	void RequestDropRemoteItem(UAC_EquipmentComponent* RemoteComponent, FGuid InstanceID);
+	
+	UFUNCTION(Server,Reliable)
+	void Server_DropRemoteItem(UAC_EquipmentComponent* RemoteComponent, FGuid InstanceID);
+	
+	
 protected:
 
 	// 登録されたAbility System Componentのキャッシュ
