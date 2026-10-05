@@ -2,6 +2,9 @@
 
 
 #include "AC_EquipmentComponent.h"
+
+#include <ThirdParty/ShaderConductor/ShaderConductor/External/DirectXShaderCompiler/include/dxc/DXIL/DxilConstants.h>
+
 #include "GAS/EquipmentSystem/WorldItem/WorldItemActor.h"
 #include "Net/UnrealNetwork.h"
 
@@ -531,6 +534,22 @@ void UAC_EquipmentComponent::Server_TransferFromRemote_Implementation(UAC_Equipm
 void UAC_EquipmentComponent::RequestMoveRemoteItem(UAC_EquipmentComponent* RemoteComponent, FGuid InstanceID, int32 NewGridX, int32 NewGridY)
 {
 	Server_MoveRemoteItem(RemoteComponent, InstanceID, NewGridX, NewGridY);
+}
+
+void UAC_EquipmentComponent::RequestDropRemoteItem(UAC_EquipmentComponent* RemoteComponent, FGuid InstanceID)
+{
+	Server_DropRemoteItem(RemoteComponent, InstanceID);
+}
+
+void UAC_EquipmentComponent::Server_DropRemoteItem_Implementation(UAC_EquipmentComponent* RemoteComponent,FGuid InstanceID)
+{
+	if (!RemoteComponent)
+	{
+		return;
+	}
+	
+	// サーバー上で権限を持った状態で、対象のリモートコンポーネントのドロップ処理を直接呼び出す
+	RemoteComponent->Server_DropItem_Implementation(InstanceID);
 }
 
 void UAC_EquipmentComponent::Server_MoveRemoteItem_Implementation(UAC_EquipmentComponent* RemoteComponent, FGuid InstanceID, int32 NewGridX, int32 NewGridY)

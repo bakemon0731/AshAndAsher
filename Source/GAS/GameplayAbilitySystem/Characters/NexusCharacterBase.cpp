@@ -242,9 +242,6 @@ void ANexusCharacterBase::HandleDeath_Implementation()
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	GetCharacterMovement()->DisableMovement();
 	
-	FVector Impulse = GetActorForwardVector() * -20000;//アクタの向いている方向に×－2００００（逆方向）する。
-	Impulse.Z = 15000;//Z軸方向に１５０００の力を加える。
-	GetMesh()->AddImpulseAtLocation(Impulse, GetActorLocation());
 }
 
 void ANexusCharacterBase::OnDeathTagChanged(const FGameplayTag CallbackTag, int32 NewCount)//死亡時のタグが追加された。
