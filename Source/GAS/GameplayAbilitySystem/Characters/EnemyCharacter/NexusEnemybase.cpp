@@ -4,6 +4,8 @@
 #include "NexusEnemybase.h"
 #include "Components/SphereComponent.h"
 #include "GAS/GameplayAbilitySystem/Characters/PlayerCharacter/NexusPlayerbase.h"
+#include "GAS/EquipmentSystem/DataAsset/LootTableDataAsset.h"
+#include "GAS/EquipmentSystem/EquipmentComponent/AC_EquipmentComponent.h"
 
 
 // Sets default values
@@ -57,6 +59,19 @@ inline void ANexusEnemybase::OnDeathTagChanged(const FGameplayTag CallbackTag, i
 	if (NewCount > 0)
 	{
 		IsDead = true;
+		
+		// サーバー権限でのみルート抽選・付与を行う（クライアントで重複実行させないため）
+		if (HasAuthority() && LootTable)
+		{
+			if (UAC_EquipmentComponent* EquipComp = FindComponentByClass<UAC_EquipmentComponent>())
+			{
+				TArray<UEquipmentDataAsset*> Drops = LootTable->RollLoot();
+				for (UEquipmentDataAsset* DropItem : Drops)
+				{
+					EquipComp->AddItemToInventory(DropItem);
+				}
+			}
+		}
 	}
 }
 
