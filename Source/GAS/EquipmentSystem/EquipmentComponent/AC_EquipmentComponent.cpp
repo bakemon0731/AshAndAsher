@@ -2,9 +2,6 @@
 
 
 #include "AC_EquipmentComponent.h"
-
-#include <ThirdParty/ShaderConductor/ShaderConductor/External/DirectXShaderCompiler/include/dxc/DXIL/DxilConstants.h>
-
 #include "GAS/EquipmentSystem/WorldItem/WorldItemActor.h"
 #include "Net/UnrealNetwork.h"
 
@@ -459,19 +456,7 @@ void UAC_EquipmentComponent::Server_DropItem_Implementation(FGuid InstanceID)
 
 void UAC_EquipmentComponent::Server_MoveItemInInventory_Implementation(FGuid InstanceID, int32 NewGridX, int32 NewGridY)
 {
-	for (FInventoryItemInstance& Instance : InventoryItemsInstance)
-	{
-		if (Instance.InstanceID == InstanceID)
-		{
-			if (CanPlaceItemAt(Instance.Item, NewGridX, NewGridY, InstanceID))
-			{
-				Instance.GridX = NewGridX;
-				Instance.GridY = NewGridY;
-				OnRep_Inventory();
-			}
-			return;
-		}
-	}
+	Internal_MoveInstance(InstanceID, NewGridX, NewGridY);
 }
 
 void UAC_EquipmentComponent::Internal_MoveInstance(FGuid InstanceID, int32 NewGridX, int32 NewGridY)

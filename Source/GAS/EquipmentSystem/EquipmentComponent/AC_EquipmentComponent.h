@@ -145,7 +145,7 @@ public:
 	UFUNCTION(Server,Reliable)
 	void Server_PickupItem(class AWorldItemActor* WorldItem);
 
-	// 自分のインベントリにある指定インスタンスを、別のコンポーネントへ移動する（死体から回収する等）
+	// 自分のインベントリにある指定インスタンスを、別のコンポーネントへ移動する（Playerの場合のみ動作）
 	UFUNCTION(BlueprintCallable,Category="Equipment")
 	void RequestTransferItem(FGuid InstanceID,UAC_EquipmentComponent* TargetComponent);
 	
