@@ -30,6 +30,9 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI")
 	TObjectPtr<class USphereComponent> InteractionSphere;
 	
+	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="AI|Loot")
+	TObjectPtr<class ULootTableDataAsset> LootTable;
+	
 	//Interactableインターフェース関数のオーバーライド
 	virtual FText GetInteractionText_Implementation() const override;
 	virtual FText GetActorDisplayName_Implementation() const override;

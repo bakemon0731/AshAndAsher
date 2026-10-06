@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "GAS/EquipmentSystem/EquipmentDataAsset.h"
+#include "GAS/EquipmentSystem/DataAsset/EquipmentDataAsset.h"
 #include "GAS/Interface/Interactable.h"
 #include "WorldItemActor.generated.h"
 

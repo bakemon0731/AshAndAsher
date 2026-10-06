@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "GAS/Enum/Rarity.h"
-#include "GAS/EquipmentSystem/EquipmentDataAsset.h"
+#include "GAS/EquipmentSystem/DataAsset/EquipmentDataAsset.h"
 #include "RarityLibrary.generated.h"
 
 /**

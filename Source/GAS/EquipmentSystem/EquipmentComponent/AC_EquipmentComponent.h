@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "AbilitySystemComponent.h"
-#include "GAS/EquipmentSystem/EquipmentDataAsset.h"
+#include "GAS/EquipmentSystem/DataAsset/EquipmentDataAsset.h"
 #include "AC_EquipmentComponent.generated.h"
 
 /**
