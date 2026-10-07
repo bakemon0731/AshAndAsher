@@ -9,7 +9,6 @@
 #include "AbilitySystemGlobals.h"// アクターからASCを簡単に取得するために必要
 #include "AbilitySystemComponent.h"     // GAS処理に必要
 #include "TimerManager.h"// タイマー処理に必要
-#include "AbilitySystemBlueprintLibrary.h"
 
 
 // Sets default values
@@ -47,6 +46,12 @@ AWeaponBase::AWeaponBase()
 void AWeaponBase::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	//動的マテリアルを一度だけ作成して保持
+	if (WeaponMesh)
+	{
+		WeaponMID = WeaponMesh->CreateAndSetMaterialInstanceDynamic(0);
+	}
 	
 }
 
@@ -179,6 +184,33 @@ FVector AWeaponBase::GetSpawnPointLocation() const
 	}
 	// 万が一コンポーネントが見つからなかった場合の保険（Actor自身の座標を返す）
 	return GetActorLocation();
+}
+
+void AWeaponBase::ChangeWeaponColor(FLinearColor NewColor)
+{
+	// 作成済みの動的マテリアルに対して色パラメータをセット
+	if (WeaponMID)
+	{
+		WeaponMID->SetVectorParameterValue(FName("color"), NewColor);
+	}
+}
+
+void AWeaponBase::ChangeWeaponIntensity(float NewIntensity)
+{
+	// 作成済みの動的マテリアルに対して強度をセット
+	if (WeaponMID)
+	{
+		WeaponMID->SetScalarParameterValue(FName("intensity"), NewIntensity);
+	}
+}
+
+void AWeaponBase::ChangeWeaponPanner(float NewPanner)
+{
+	// 作成済みの動的マテリアルに対してパナーをセット
+	if (WeaponMID)
+	{
+		WeaponMID->SetScalarParameterValue(FName("2_panner"), NewPanner);
+	}
 }
 
 // Called every frame
