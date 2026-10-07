@@ -124,6 +124,10 @@ protected:
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly, Category = "GameplayEffect")
 	TSubclassOf<UGameplayEffect> DebufftoApply;
 	
+	// 動的マテリアルインスタンスを保持する変数
+	UPROPERTY(BlueprintReadOnly, Category = "Material")
+	UMaterialInstanceDynamic* WeaponMID;
+	
 	// --- 関数 ---
 	// HitScanカスタムイベント
 	UFUNCTION(BlueprintCallable, Category = "HitScanTrace")
@@ -152,5 +156,17 @@ public:
 	// 武器コンポーネントやブループリントから参照・設定できるようにする変数
 	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category = "WeaponConfig")
 	FSWeaponConfig WeaponConfig;
+	
+	// 色を変更するための関数
+	UFUNCTION(BlueprintCallable,Category = "Weapon|Material")
+	void ChangeWeaponColor(FLinearColor NewColor);
+	
+	//武器の強度を調整する関数
+	UFUNCTION(BlueprintCallable,Category = "Weapon|Material")
+	void ChangeWeaponIntensity (float NewIntensity);
+	
+	// Panner（パナー）を調整する関数
+	UFUNCTION(BlueprintCallable,Category = "Weapon|Material")
+	void ChangeWeaponPanner (float NewPanner);
 
 };
