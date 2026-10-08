@@ -74,4 +74,7 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment",meta = (MultiLine = true))
 	FText Description;
 	
+	// 移動速度ペナルティ値（正の数で入力。例：10.0）
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment",meta = (ClampMin = "0.0"))
+	float MoveSpeedPenalty = 0.0f;
 };

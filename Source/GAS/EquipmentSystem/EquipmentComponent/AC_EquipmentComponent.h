@@ -94,6 +94,9 @@ public:
 	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="Equipment")
 	TArray<TObjectPtr<UEquipmentDataAsset>> StartingInventoryItems;
 
+	//移動速度ペナルティ用の汎用GE（SetByCallerで数値を渡して使う)
+	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="Equipment|Weight")
+	TSubclassOf<UGameplayEffect> MoveSpeedPenaltyEffect;
 	
 public:
 	

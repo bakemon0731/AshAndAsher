@@ -49,6 +49,10 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Equipment")
 	TObjectPtr<class UAC_EquipmentComponent> EquipmentManagerComponent;
 	
+	// MoveSpeedレーティング300(=100%)のときの実際の走行速度(cm/s)。
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+	float BaseRunSpeed = 500.f;
+	
 	// インターフェース関数のオーバーライド宣言
 	virtual int32 GetTeamNumber() const override;
 	
@@ -57,10 +61,6 @@ public:
 protected://マルチプレイヤーでのデータ同期に必要
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability System")
 	EGameplayEffectReplicationMode AscReplicationMode = EGameplayEffectReplicationMode::Mixed;
-	//変数：AscReplicationMode
-	//型：EGameplayEffectReplicationMode（ゲームモード）
-	//デフォルト値：Mixed（混合モード）
-	//機能：ネットワークでアビリティの情報をどう同期するか
 	
 	// キャラクターがゲーム開始時に持つべきアビリティのリストを保存する変数
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability System")

@@ -85,7 +85,7 @@ void UAC_EquipmentComponent::ApplyItemEffect(FEquippedItemEntry& Entry)
 		return;
 	}
 	
-	// アイテムに設定されたエフェクト（意思、知識）をループ処理
+	// アイテムに設定されたエフェクト（意思、知識）をループ処理し、適用
 	for (TSubclassOf<UGameplayEffect> EffectClass : Entry.Item->GrantedEffects)
 	{
 		if (!EffectClass)
@@ -104,6 +104,32 @@ void UAC_EquipmentComponent::ApplyItemEffect(FEquippedItemEntry& Entry)
 			Entry.AppliedEffectHandles.Add(Handle);
 		}
 	}
+	
+	//　Head/Chest/Hands/Legsのみ、移動速度ペナルティを適用
+	const bool IsArmorSlot = 
+		Entry.Item->Slot == EEquipmentSlot::Head  ||
+		Entry.Item->Slot == EEquipmentSlot::Chest ||
+		Entry.Item->Slot == EEquipmentSlot::Hands ||
+		Entry.Item->Slot == EEquipmentSlot::Legs;
+	
+	if (IsArmorSlot && Entry.Item->MoveSpeedPenalty > 0.f && MoveSpeedPenaltyEffect)
+	{
+		FGameplayEffectContextHandle Context = CachedASC->MakeEffectContext();
+		FGameplayEffectSpecHandle Spec = CachedASC->MakeOutgoingSpec(MoveSpeedPenaltyEffect, 1.f, Context);
+		if (Spec.IsValid())
+		{
+			//MoveSpeedPenaltyの数値をマイナス値にして渡す。
+			Spec.Data->SetSetByCallerMagnitude(
+				FGameplayTag::RequestGameplayTag(FName("Data.WeightPenalty")),
+				-Entry.Item->MoveSpeedPenalty
+				);
+			
+			FActiveGameplayEffectHandle Handle = CachedASC->ApplyGameplayEffectSpecToSelf(*Spec.Data.Get());
+			// 既存のRemoveItemEffectsで自動的に外れる
+			Entry.AppliedEffectHandles.Add(Handle);
+		}
+	}
+	
 }
 
 //装備を外した時に、適用されていたGameplayEffect(知識、意思)をキャラクターから削除
