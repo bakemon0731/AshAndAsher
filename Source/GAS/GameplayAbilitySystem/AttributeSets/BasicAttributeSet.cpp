@@ -19,8 +19,8 @@ UBasicAttributeSet::UBasicAttributeSet()
     Damage = 0.f;
     Shield = 0.f;
     MaxShield = 100.f;
-   MoveSpeed = 500.f;
-   MaxMoveSpeed = 500.f;
+   MoveSpeed = 300.f;
+   MaxMoveSpeed = 330.f;
    MaxMemoryCapacity = 0.f;
 }
 
@@ -228,14 +228,16 @@ void UBasicAttributeSet::PostAttributeChange(const FGameplayAttribute& Attribute
    //移動速度反映処理
    if (Attribute == GetMoveSpeedAttribute())
    {
-      // オーナーをACharacterとして取得
-      ACharacter* OwningCharacter = Cast<ACharacter>(GetOwningActor());
-      
-      // CharacterMovementComponentを持っているか確認し、値を上書きする
-      if (OwningCharacter && OwningCharacter->GetCharacterMovement())
+      if (ANexusCharacterBase* OwningCharacter = Cast<ANexusCharacterBase>(GetOwningActor()))
       {
-         OwningCharacter->GetCharacterMovement()->MaxWalkSpeed = NewValue;
+         if (UCharacterMovementComponent* MoveComp = OwningCharacter->GetCharacterMovement())
+         {
+            // レーティング300 = 100%。基準走行速度に対する倍率として反映
+            constexpr float BaseRating = 300.f;
+            MoveComp->MaxWalkSpeed = OwningCharacter->BaseRunSpeed * (NewValue / BaseRating);
+         }
       }
+      
    }
    
 }

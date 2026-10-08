@@ -58,7 +58,7 @@ public:	 // <<<ここ以降のメンバーは外部からアクセス可能
 	FGameplayAttributeData MoveSpeed;
 	ATTRIBUTE_ACCESSORS_BASIC(UBasicAttributeSet, MoveSpeed);
 	
-	UPROPERTY(BlueprintReadOnly, Category = "Movement",ReplicatedUsing=OnRep_MoveSpeed)
+	UPROPERTY(BlueprintReadOnly, Category = "Movement",ReplicatedUsing=OnRep_MaxMoveSpeed)
 	FGameplayAttributeData MaxMoveSpeed;
 	ATTRIBUTE_ACCESSORS_BASIC(UBasicAttributeSet, MaxMoveSpeed);
 	
