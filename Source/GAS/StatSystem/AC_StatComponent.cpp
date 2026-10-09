@@ -4,7 +4,9 @@
 #include "AC_StatComponent.h"
 #include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystemComponent.h"
+#include "GAS/GameplayAbilitySystem/AttributeSets/PrimaryAttributeSet.h"
 #include "Net/UnrealNetwork.h"
+#include "GAS/StatSystem/DataAsset/CharacterClassDataAsset.h"
 
 
 // Sets default values for this component's properties
@@ -34,25 +36,6 @@ void UAC_StatComponent::BeginPlay()
 	{
 		return;
 	}
-	
-	//サーバー側（Authorityがある）場合のみ、初期化エフェクトを適用する
-	if (GetOwner()->HasAuthority())
-	{
-		// 派生ステータス計算用のInfinite Effectを適用
-		for (TSubclassOf<UGameplayEffect> EffectClass : DerivedStatEffects)
-		{
-			if(EffectClass)
-			{
-				//コンテキストを作成。
-				FGameplayEffectContextHandle Context = ASC->MakeEffectContext();
-				FGameplayEffectSpecHandle Spec = ASC->MakeOutgoingSpec(EffectClass,1.f,Context);
-				if (Spec.IsValid())
-				{
-					ASC->ApplyGameplayEffectSpecToSelf(*Spec.Data.Get());
-				}
-			}
-		}	
-	}
 }
 
 void UAC_StatComponent::TickComponent(float DeltaTime, ELevelTick TickType,
@@ -72,6 +55,45 @@ void UAC_StatComponent::RequestAllocateStat(FGameplayTag StatTag)
 {
 	// クライアントの操作をサーバーに送信して、実際の処理をサーバーに依頼する
 	Server_AllocateStat(StatTag);
+}
+
+void UAC_StatComponent::InitializeStats()
+{
+	if (!GetOwner() || !GetOwner()->HasAuthority())
+	{
+		return;
+	}
+	
+	UAbilitySystemComponent* ASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(GetOwner());
+	if (!ASC)
+	{
+		return;
+	}
+	
+	if (CharacterClass)
+	{
+		const FPrimaryStatValues& S = CharacterClass->BaseStats;
+		ASC->SetNumericAttributeBase(UPrimaryAttributeSet::GetStrengthAttribute(),  S.Strength);
+		ASC->SetNumericAttributeBase(UPrimaryAttributeSet::GetKnowledgeAttribute(), S.Knowledge);
+		ASC->SetNumericAttributeBase(UPrimaryAttributeSet::GetWillpowerAttribute(), S.Willpower);
+		ASC->SetNumericAttributeBase(UPrimaryAttributeSet::GetAgilityAttribute(),   S.Agility);
+		ASC->SetNumericAttributeBase(UPrimaryAttributeSet::GetVitalityAttribute(),  S.Vigor);
+	}
+	
+	//派生ステータス用のInfinite Effectを適用
+	for (TSubclassOf<UGameplayEffect> EffectClass : DerivedStatEffects)
+	{
+		if (!EffectClass)
+		{
+			continue;
+		}
+		FGameplayEffectContextHandle Context = ASC->MakeEffectContext();
+		FGameplayEffectSpecHandle Spec = ASC->MakeOutgoingSpec(EffectClass, 1.f, Context);
+		if (Spec.IsValid())
+		{
+			ASC->ApplyGameplayEffectSpecToSelf(*Spec.Data.Get());
+		}
+	}
 }
 
 // サーバー側で実行される割り振りのメイン処理
