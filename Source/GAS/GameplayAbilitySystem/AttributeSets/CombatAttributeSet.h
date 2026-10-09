@@ -38,6 +38,16 @@ public:
 	FGameplayAttributeData MagicalPower;
 	ATTRIBUTE_ACCESSORS_BASIC(UCombatAttributeSet, MagicalPower);
 	
+	//AdditionalMagicalDamage(追加魔法ダメージ)
+	UPROPERTY(BlueprintReadOnly, Category = "AdditionalMagicalDamage",ReplicatedUsing=OnRep_AdditionalMagicalDamage)
+	FGameplayAttributeData AdditionalMagicalDamage;
+	ATTRIBUTE_ACCESSORS_BASIC(UCombatAttributeSet, AdditionalMagicalDamage);
+	
+	//AdditionalPhysicalDamage(追加物理ダメージ)
+	UPROPERTY(BlueprintReadOnly, Category = "AdditionalPhysicalDamage",ReplicatedUsing=OnRep_AdditionalPhysicalDamage)
+	FGameplayAttributeData AdditionalPhysicalDamage;
+	ATTRIBUTE_ACCESSORS_BASIC(UCombatAttributeSet, AdditionalPhysicalDamage);
+	
 protected:
 	UFUNCTION()
 	void OnRep_Armor(const FGameplayAttributeData& OldValue) const
@@ -63,6 +73,18 @@ protected:
 	void OnRep_MagicalPower(const FGameplayAttributeData& OldValue) const
 	{
 		GAMEPLAYATTRIBUTE_REPNOTIFY(UCombatAttributeSet, MagicalPower, OldValue);
+	}
+	
+	UFUNCTION()
+	void OnRep_AdditionalMagicalDamage(const FGameplayAttributeData& OldValue) const
+	{
+		GAMEPLAYATTRIBUTE_REPNOTIFY(UCombatAttributeSet, AdditionalMagicalDamage, OldValue);
+	}
+	
+	UFUNCTION()
+	void OnRep_AdditionalPhysicalDamage(const FGameplayAttributeData& OldValue) const
+	{
+		GAMEPLAYATTRIBUTE_REPNOTIFY(UCombatAttributeSet, AdditionalPhysicalDamage, OldValue);
 	}
 	
 	

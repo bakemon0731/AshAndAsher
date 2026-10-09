@@ -25,4 +25,6 @@ private:
 	FGameplayEffectAttributeCaptureDefinition ArmorDef;
 	FGameplayEffectAttributeCaptureDefinition PhysicalPowerDef;
 	FGameplayEffectAttributeCaptureDefinition MagicalPowerDef;
+	FGameplayEffectAttributeCaptureDefinition AdditionalMagicalDamageDef;
+	FGameplayEffectAttributeCaptureDefinition AdditionalPhysicalDamageDef;
 };

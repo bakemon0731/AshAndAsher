@@ -6,6 +6,7 @@
 #include "Components/ActorComponent.h"
 #include "GameplayTagContainer.h"
 #include "GameplayEffect.h"
+#include "GAS/StatSystem/DataAsset/CharacterClassDataAsset.h"
 #include "AC_StatComponent.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnStatPointsChanged);
@@ -26,6 +27,9 @@ public:
 	//DeriveEffectを初期化時に一度だけ適用。
 	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category = "Stats")
 	TArray<TSubclassOf<UGameplayEffect>> DerivedStatEffects;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	TObjectPtr<class UCharacterClassDataAsset> CharacterClass;
 	
 	// コンポーネントのレプリケーション設定
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
@@ -64,5 +68,9 @@ public:
 	//Data.Stat.〇〇タグを送る。
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	void RequestAllocateStat(FGameplayTag StatTag);
+	
+	// ASC初期化後にキャラクターから呼ぶ（サーバーのみ実行）
+	UFUNCTION(BlueprintCallable, Category = "Stats")
+	void InitializeStats();
 	
 };

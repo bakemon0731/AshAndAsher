@@ -11,7 +11,9 @@ UCombatAttributeSet::UCombatAttributeSet()
 	Armor = 0.f;
 	MaxArmor = 100.0f;
 	PhysicalPower = 0.f; 
-	MagicalPower = 0.f;  
+	MagicalPower = 0.f; 
+	AdditionalMagicalDamage = 0.f;
+	AdditionalPhysicalDamage = 0.f;
 }
 
 
@@ -23,6 +25,8 @@ void UCombatAttributeSet::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	DOREPLIFETIME_CONDITION_NOTIFY(UCombatAttributeSet, MaxArmor, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UCombatAttributeSet, PhysicalPower, COND_None, REPNOTIFY_Always); 
 	DOREPLIFETIME_CONDITION_NOTIFY(UCombatAttributeSet, MagicalPower, COND_None, REPNOTIFY_Always);  
+	DOREPLIFETIME_CONDITION_NOTIFY(UCombatAttributeSet, AdditionalMagicalDamage, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(UCombatAttributeSet, AdditionalPhysicalDamage, COND_None, REPNOTIFY_Always);
 }//↑ 「この4つの属性をネットワーク同期の対象にします」と宣言している関数。
 
 

@@ -115,6 +115,11 @@ void ANexusCharacterBase::PossessedBy(AController* NewController)
 		{
 			EquipmentManagerComponent->InitializeEquipmentSystem(AbilitySystemComponent);
 		}
+		
+		if (SpellManagerComponent)
+		{
+			StatManagerComponent->InitializeStats();
+		}
 	}
 	
 	
