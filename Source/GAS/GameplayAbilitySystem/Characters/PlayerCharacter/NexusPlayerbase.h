@@ -49,9 +49,15 @@ protected:
 	UPROPERTY()
 	TArray<TObjectPtr<AActor>> NearbyInteractables;
 	
+	// 死亡時にSpawnするコンテナのクラス（BP_DeathContainerを設定）
+	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category = "Death")
+	TSubclassOf<class ALootContainerActor> DeathContainerClass;
+	
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+	
+	void SpawnDeathContainer();
 
 public:
 	// Called every frame
@@ -63,4 +69,7 @@ public:
 	//インターフェース関数の実装
 	virtual void NotifyStartCast_Implementation(float ChargeTime) override;
 	virtual void NotifyCancelCast_Implementation() override;
+	
+	//NexusCharacterBaseからOnDeathTagChangedをオーバーライド
+	virtual void OnDeathTagChanged(const FGameplayTag CallbackTag, int32 NewCount) override;
 };

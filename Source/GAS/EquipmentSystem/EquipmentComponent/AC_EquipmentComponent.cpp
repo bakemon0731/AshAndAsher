@@ -552,6 +552,39 @@ void UAC_EquipmentComponent::RequestDropRemoteItem(UAC_EquipmentComponent* Remot
 	Server_DropRemoteItem(RemoteComponent, InstanceID);
 }
 
+void UAC_EquipmentComponent::ExtractAllItems(TArray<UEquipmentDataAsset*>& OutItems)
+{
+	if (!GetOwner() || !GetOwner()->HasAuthority())
+	{
+		return;
+	}
+	
+	//装備中のアイテムのGE効果を外してから回収する
+	for (TPair<EEquipmentSlot, FEquippedItemEntry>& Pair : EquippedItems)
+	{
+		RemoveItemEffects(Pair.Value);
+		if (Pair.Value.Item)
+		{
+			OutItems.Add(Pair.Value.Item);
+		}
+	}
+	EquippedItems.Empty();
+	EquippedSlotsReplicated.Empty();
+	
+	//インベントリ内のアイテム
+	for (const FInventoryItemInstance& Instance : InventoryItemsInstance)
+	{
+		if (Instance.Item)
+		{
+			OutItems.Add(Instance.Item);
+		}
+	}
+	InventoryItemsInstance.Empty();
+	
+	OnRep_Inventory();
+	OnRep_EquippedSlots();
+}
+
 void UAC_EquipmentComponent::Server_DropRemoteItem_Implementation(UAC_EquipmentComponent* RemoteComponent,FGuid InstanceID)
 {
 	if (!RemoteComponent)

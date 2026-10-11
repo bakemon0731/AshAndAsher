@@ -180,6 +180,9 @@ public:
 	UFUNCTION(Server,Reliable)
 	void Server_DropRemoteItem(UAC_EquipmentComponent* RemoteComponent, FGuid InstanceID);
 	
+	// サーバー専用：装備品とインベントリを全て取り出して返し、自分は空になる（死亡時のドロップ用）
+	UFUNCTION(BlueprintCallable, Category = "Equipment")
+	void ExtractAllItems(TArray<UEquipmentDataAsset*>& OutItems);
 	
 protected:
 
