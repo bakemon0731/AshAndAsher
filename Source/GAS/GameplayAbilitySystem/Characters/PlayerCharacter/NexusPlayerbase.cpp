@@ -2,7 +2,11 @@
 
 
 #include "NexusPlayerbase.h"
+#include "GameFramework/PlayerState.h"
+#include "Components/CapsuleComponent.h"
 #include "GAS/Interface/Interactable.h"
+#include "GAS/EquipmentSystem/EquipmentComponent/AC_EquipmentComponent.h"
+#include "GAS/EquipmentSystem/LootContainer/LootContainerActor.h"
 
 
 
@@ -93,6 +97,46 @@ void ANexusPlayerbase::NotifyCancelCast_Implementation()
 	if (IsLocallyControlled())
 	{
 		OnCastCanceled.Broadcast();
+	}
+}
+
+void ANexusPlayerbase::OnDeathTagChanged(const FGameplayTag CallbackTag, int32 NewCount)
+{
+	Super::OnDeathTagChanged(CallbackTag, NewCount);
+	
+	//コールバック（サーバーのみで処理）
+	if (NewCount > 0 && HasAuthority())
+	{
+		SpawnDeathContainer();
+	}
+}
+
+void ANexusPlayerbase::SpawnDeathContainer()
+{
+	UAC_EquipmentComponent* EquipComp = FindComponentByClass<UAC_EquipmentComponent>();
+	if (!EquipComp || !DeathContainerClass)
+	{
+		return;
+	}
+	
+	// インベントリと装備が空になる
+	TArray<UEquipmentDataAsset*> Items;
+	EquipComp->ExtractAllItems(Items);
+	if (Items.Num() == 0)
+	{
+		// 何も持っていなければコンテナは作らない
+		return;
+	}
+	
+	const FVector SpawnLocation = GetActorLocation() - FVector(0.0f, 0.0f, GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
+	
+	FActorSpawnParameters Params;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+	
+	if (ALootContainerActor* Container = GetWorld()->SpawnActor<ALootContainerActor>(DeathContainerClass, SpawnLocation, GetActorRotation(), Params))
+	{
+		const FString PlayerName = GetPlayerState() ? GetPlayerState()->GetPlayerName() : FString();
+		Container->InitializeContents(Items, FText::FromString(PlayerName + TEXT("の遺体")));
 	}
 }
 
