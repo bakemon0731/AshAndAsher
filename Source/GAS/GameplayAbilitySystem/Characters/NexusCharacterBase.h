@@ -7,12 +7,14 @@
 #include "AbilitySystemComponent.h"
 #include "GameFramework/Character.h"
 #include "GAS/Interface/Damageable.h"
+#include "GAS/Interface/Interactable.h"
 #include "NexusCharacterBase.generated.h"
 
 class UAnimMontage;
+class USphereComponent;
 
 UCLASS()
-class GAS_API ANexusCharacterBase : public ACharacter, public IAbilitySystemInterface, public IDamageable 
+class GAS_API ANexusCharacterBase : public ACharacter, public IAbilitySystemInterface, public IDamageable ,public IInteractable
 {
 	GENERATED_BODY()
 
@@ -53,6 +55,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	float BaseRunSpeed = 500.f;
 	
+	// 死体を漁れる範囲（敵・プレイヤー共通）
+	UPROPERTY(VisibleAnywhere,BlueprintReadOnly, Category = "Loot")
+	TObjectPtr<USphereComponent> InteractionSphere;
+	
+	// 漁る時に死体の装備スロットも見せるか（プレイヤー=true、モンスター=false）
+	UPROPERTY(EditAnywhere,BlueprintReadOnly, Category = "Loot")
+	bool LootShowsEquipment = false;
+	
 	// インターフェース関数のオーバーライド宣言
 	virtual int32 GetTeamNumber() const override;
 	
@@ -85,9 +95,14 @@ protected://マルチプレイヤーでのデータ同期に必要
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pitch")
 	float Pitch;
 	
+	UPROPERTY(BlueprintReadOnly, Category = "Loot")
+	bool IsDead = false;
+	
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+	
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	virtual void PossessedBy(AController* NewController) override;
 	
@@ -96,9 +111,18 @@ protected:
 	// 死亡タグが変化した時に呼ばれる関数（デフォルトでは何もしない）
 	virtual void OnDeathTagChanged(const FGameplayTag CallbackTag, int32 NewCount);
 	
-	
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Damage")// 死亡時の処理を実装する関数
+	// 死亡時の処理を実装する関数
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Damage")
 	void HandleDeath();
+	
+	UFUNCTION()
+	void OnLootSphereBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	UFUNCTION()
+	void OnLootSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+
 	
 	
 public:	
@@ -133,4 +157,18 @@ public:
 	// Index指定で魔法を発動する関数（ディスパッチャーAbilityから呼ばれる）
 	UFUNCTION(BlueprintCallable, Category = "AbilitySystem")
 	bool ActivateSpellByIndex(int32 SpellIndex);
+	
+	//死体かどうかを返す純粋関数
+	UFUNCTION(BlueprintPure, Category = "Loot")
+	bool IsCorpse() const { return IsDead; }
+	
+	//自身が死んだかどうか。（生きている間（true）は自身のインベントリを漁れない等）
+	UFUNCTION(BlueprintCallable, Category = "Loot")
+	void SetDead(bool NewDead){ IsDead = NewDead; }
+	
+	// Interactableインターフェースをオーバーライド
+	virtual FText GetInteractionText_Implementation() const override;
+	virtual FText GetActorDisplayName_Implementation() const override;
+	virtual FLinearColor GetDisplayNameColor_Implementation() const override;
+	virtual void OnInteract_Implementation(AActor* Interactor) override;
 };

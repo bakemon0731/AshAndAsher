@@ -3,6 +3,7 @@
 
 #include "AC_EquipmentComponent.h"
 #include "GAS/EquipmentSystem/WorldItem/WorldItemActor.h"
+#include "GAS/GameplayAbilitySystem/Characters/NexusCharacterBase.h"
 #include "Net/UnrealNetwork.h"
 
 
@@ -43,6 +44,31 @@ void UAC_EquipmentComponent::GetLifetimeReplicatedProps(TArray<class FLifetimePr
 	// InventoryItems 配列を同期対象として登録
 	DOREPLIFETIME(UAC_EquipmentComponent,InventoryItemsInstance);
 	DOREPLIFETIME(UAC_EquipmentComponent, EquippedSlotsReplicated);
+}
+
+void UAC_EquipmentComponent::RebuildEquippedSlotsReplicated()
+{
+	EquippedSlotsReplicated.Empty();
+	for (const auto& Pair : EquippedItems)
+	{
+		FEquippedSlotInfo Info;
+		Info.Slot = Pair.Key;
+		Info.Item = Pair.Value.Item;
+		EquippedSlotsReplicated.Add(Info);
+	}
+}
+
+bool UAC_EquipmentComponent::IsValidLootTarget(const UAC_EquipmentComponent* Remote) const
+{
+	const ANexusCharacterBase* TargetChar = Remote ? Cast<ANexusCharacterBase>(Remote->GetOwner()) : nullptr;
+	if (!TargetChar || !GetOwner())
+	{
+		return false;
+	}
+
+	// 死体であり、かつ操作者の近くにあること
+	return TargetChar->IsCorpse()
+		&& FVector::Dist(TargetChar->GetActorLocation(), GetOwner()->GetActorLocation()) <= 500.f;
 }
 
 //GAS（Ability System Component）を紐付ける
@@ -230,14 +256,7 @@ void UAC_EquipmentComponent::Server_EquipItem_Implementation(FGuid InstanceID)
 	EquippedItems.Add(Item->Slot, NewEntry);
 
 	// レプリケート用配列を更新
-	EquippedSlotsReplicated.Empty();
-	for (const auto& Pair : EquippedItems)
-	{
-		FEquippedSlotInfo Info;
-		Info.Slot = Pair.Key;
-		Info.Item = Pair.Value.Item;
-		EquippedSlotsReplicated.Add(Info);
-	}
+	RebuildEquippedSlotsReplicated();
 
 	OnRep_Inventory();
 	OnRep_EquippedSlots();
@@ -280,14 +299,7 @@ void UAC_EquipmentComponent::Server_UnequipItem_Implementation(EEquipmentSlot Sl
 	EquippedItems.Remove(Slot);
 	
 	// レプリケート用配列を更新
-	EquippedSlotsReplicated.Empty();
-	for (const auto& Pair : EquippedItems)
-	{
-		FEquippedSlotInfo Info;
-		Info.Slot = Pair.Key;
-		Info.Item = Pair.Value.Item;
-		EquippedSlotsReplicated.Add(Info);
-	}
+	RebuildEquippedSlotsReplicated();
 	
 	// サーバー側のUIを更新し、クライアントへ変更を同期する
 	OnRep_Inventory();
@@ -524,6 +536,8 @@ void UAC_EquipmentComponent::RequestTransferFromRemote(UAC_EquipmentComponent* R
 
 void UAC_EquipmentComponent::Server_TransferFromRemote_Implementation(UAC_EquipmentComponent* RemoteComponent, FGuid InstanceID)
 {
+	if (!IsValidLootTarget(RemoteComponent)) { return; }
+	
 	if (!RemoteComponent || RemoteComponent == this)
 	{
 		return;
@@ -552,41 +566,59 @@ void UAC_EquipmentComponent::RequestDropRemoteItem(UAC_EquipmentComponent* Remot
 	Server_DropRemoteItem(RemoteComponent, InstanceID);
 }
 
-void UAC_EquipmentComponent::ExtractAllItems(TArray<UEquipmentDataAsset*>& OutItems)
+bool UAC_EquipmentComponent::Internal_RemoveEquippedItem(EEquipmentSlot Slot, UEquipmentDataAsset*& OutItem)
 {
-	if (!GetOwner() || !GetOwner()->HasAuthority())
+	FEquippedItemEntry* Entry = EquippedItems.Find(Slot);
+	if (!Entry || !Entry->Item)
+	{
+		return false;
+	}
+
+	RemoveItemEffects(*Entry);
+	OutItem = Entry->Item;
+	EquippedItems.Remove(Slot);
+
+	RebuildEquippedSlotsReplicated();
+	OnRep_EquippedSlots();
+	return true;
+}
+
+void UAC_EquipmentComponent::RequestTransferEquippedFromRemote(UAC_EquipmentComponent* RemoteComponent,
+	EEquipmentSlot Slot)
+{
+	Server_TransferEquippedFromRemote(RemoteComponent, Slot);
+}
+
+// 【Remote操作の起点】プレイヤー自身のコンポーネントから呼ばれる想定（死体側RPCはクライアントから届かないため）
+void UAC_EquipmentComponent::Server_TransferEquippedFromRemote_Implementation(UAC_EquipmentComponent* RemoteComponent,
+	EEquipmentSlot Slot)
+{
+	if (!IsValidLootTarget(RemoteComponent)) { return; }
+	
+	if (!RemoteComponent || RemoteComponent == this || !IsValidLootTarget(RemoteComponent))
 	{
 		return;
 	}
-	
-	//装備中のアイテムのGE効果を外してから回収する
-	for (TPair<EEquipmentSlot, FEquippedItemEntry>& Pair : EquippedItems)
+
+	// 自分のインベントリに空きがある時だけ取り出す（先に確認しないと、装備を外した後に入らず消える）
+	UEquipmentDataAsset* Peek = RemoteComponent->GetEquippedItem(Slot);
+	int32 FreeX, FreeY;
+	if (!Peek || !FindFreeGridSlot(Peek, FreeX, FreeY))
 	{
-		RemoveItemEffects(Pair.Value);
-		if (Pair.Value.Item)
-		{
-			OutItems.Add(Pair.Value.Item);
-		}
+		return;
 	}
-	EquippedItems.Empty();
-	EquippedSlotsReplicated.Empty();
-	
-	//インベントリ内のアイテム
-	for (const FInventoryItemInstance& Instance : InventoryItemsInstance)
+
+	UEquipmentDataAsset* Item = nullptr;
+	if (RemoteComponent->Internal_RemoveEquippedItem(Slot, Item))
 	{
-		if (Instance.Item)
-		{
-			OutItems.Add(Instance.Item);
-		}
+		AddItemToInventory(Item);
 	}
-	InventoryItemsInstance.Empty();
-	
-	OnRep_Inventory();
-	OnRep_EquippedSlots();
 }
 
 void UAC_EquipmentComponent::Server_DropRemoteItem_Implementation(UAC_EquipmentComponent* RemoteComponent,FGuid InstanceID)
 {
+	if (!IsValidLootTarget(RemoteComponent)) { return; }
+	
 	if (!RemoteComponent)
 	{
 		return;
@@ -598,6 +630,9 @@ void UAC_EquipmentComponent::Server_DropRemoteItem_Implementation(UAC_EquipmentC
 
 void UAC_EquipmentComponent::Server_MoveRemoteItem_Implementation(UAC_EquipmentComponent* RemoteComponent, FGuid InstanceID, int32 NewGridX, int32 NewGridY)
 {
+	
+	if (!IsValidLootTarget(RemoteComponent)) { return; }
+	
 	if (!RemoteComponent)
 	{
 		return;

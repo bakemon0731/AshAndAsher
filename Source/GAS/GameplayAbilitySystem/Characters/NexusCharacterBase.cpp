@@ -13,7 +13,8 @@
 #include "GAS/GameplayAbilitySystem/AttributeSets/PrimaryAttributeSet.h"
 #include "GAS/SpellSystem/SpellComponent/AC_SpellComponent.h"
 #include "GAS/StatSystem/AC_StatComponent.h"
-#include "GAS/EquipmentSystem/EquipmentComponent/AC_EquipmentComponent.h"
+#include "Components/SphereComponent.h"
+#include "GAS/GameplayAbilitySystem/Characters/PlayerCharacter/NexusPlayerbase.h"
 
 // Sets default values
 ANexusCharacterBase::ANexusCharacterBase()
@@ -37,13 +38,19 @@ ANexusCharacterBase::ANexusCharacterBase()
 	//Configure character movement
 	GetCharacterMovement()->bOrientRotationToMovement = true; 
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f);
-	
 	GetCharacterMovement()->JumpZVelocity = 500.f;
 	GetCharacterMovement()->AirControl = 0.35f;
 	GetCharacterMovement()->MaxWalkSpeed = 500.f;
 	GetCharacterMovement()->MinAnalogWalkSpeed = 20.f;
 	GetCharacterMovement()->BrakingDecelerationWalking = 2000.f;
 	GetCharacterMovement()->BrakingDecelerationFalling = 1500.f;
+	
+	//漁れるスヒィアコリジョンを設定。
+	InteractionSphere = CreateDefaultSubobject<USphereComponent>(TEXT("InteractionSphere"));
+	InteractionSphere->SetupAttachment(GetCapsuleComponent());
+	InteractionSphere->SetSphereRadius(150.f);
+	InteractionSphere->SetCollisionProfileName(TEXT("Custom"));
+	
 	
 	//基本属性セットを追加
 	BasicAttributeSet = CreateDefaultSubobject<UBasicAttributeSet>(TEXT("BasicAttributeSet"));
@@ -74,8 +81,31 @@ void ANexusCharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	AbilitySystemComponent->RegisterGameplayTagEvent(FGameplayTag::RequestGameplayTag("State.Dead"))//State.Deadタグが追加された時に呼ばれるバインドイベント。
+	//State.Deadタグが追加された時に呼ばれるバインドイベント。
+	AbilitySystemComponent->RegisterGameplayTagEvent(FGameplayTag::RequestGameplayTag("State.Dead"))
 	.AddUObject(this, &ANexusCharacterBase::OnDeathTagChanged);
+	
+	//InteractionSphereをオーバーライド
+	InteractionSphere->OnComponentBeginOverlap.AddDynamic(this, &ANexusCharacterBase::OnLootSphereBeginOverlap);
+	InteractionSphere->OnComponentEndOverlap.AddDynamic(this, &ANexusCharacterBase::OnLootSphereEndOverlap);
+}
+
+void ANexusCharacterBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// 破棄される死体が、近くのプレイヤーのリストに残らないようにする
+	if (InteractionSphere)
+	{
+		TArray<AActor*> Overlapping;
+		InteractionSphere->GetOverlappingActors(Overlapping, ANexusPlayerbase::StaticClass());
+		for (AActor* Actor : Overlapping)
+		{
+			if (ANexusPlayerbase* Player = Cast<ANexusPlayerbase>(Actor))
+			{
+				Player->UnregisterNearbyInteractable(this);
+			}
+		}
+	}
+	Super::EndPlay(EndPlayReason);
 }
 
 // Called every frame
@@ -138,6 +168,34 @@ bool ANexusCharacterBase::ActivateSpellByIndex(int32 SpellIndex)
 	}
 	
 	return AbilitySystemComponent->TryActivateAbility(SpellAbilityHandles[SpellIndex]);
+}
+
+FText ANexusCharacterBase::GetInteractionText_Implementation() const
+{
+	return  IsDead ? FText::FromString(TEXT("漁る")) : FText::GetEmpty();
+}
+
+FText ANexusCharacterBase::GetActorDisplayName_Implementation() const
+{
+	// 子クラスでオーバーライドする
+	return FText::GetEmpty(); 
+}
+
+FLinearColor ANexusCharacterBase::GetDisplayNameColor_Implementation() const
+{
+	return FLinearColor::White;
+}
+
+void ANexusCharacterBase::OnInteract_Implementation(AActor* Interactor)
+{
+	if (!IsDead)
+	{
+		return;
+	}
+	if (ANexusPlayerbase* Player = Cast<ANexusPlayerbase>(Interactor))
+	{
+		Player->OpenLootScreen(this);
+	}
 }
 
 //PlayerStateがネットワーク上でレプリケート（同期）された時に呼ばれます（クライアント側）
@@ -253,7 +311,49 @@ void ANexusCharacterBase::OnDeathTagChanged(const FGameplayTag CallbackTag, int3
 {
 	if (NewCount > 0)
 	{
-		HandleDeath();//死亡時の処理を実行
+		IsDead = true;
+		//死亡時の処理を実行
+		HandleDeath();
+		
+		// 死んだ瞬間に既に球の中にいるプレイヤーは、BeginOverlapが発火済みで登録されていないので、ここで登録する
+		TArray<AActor*> Overlapping;
+		InteractionSphere->GetOverlappingActors(Overlapping, ANexusPlayerbase::StaticClass());
+		for (AActor* Actor : Overlapping)
+		{
+			if (Actor != this)
+			{
+				if (ANexusPlayerbase* Player = Cast<ANexusPlayerbase>(Actor))
+				{
+					Player->RegisterNearbyInteractable(this);
+				}
+			}
+		}
 	}
 	
 }
+
+void ANexusCharacterBase::OnLootSphereBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	// 生きている間は対象外。自分自身の死体は漁れない
+	if (!IsDead || OtherActor == this)
+	{
+		return;
+	}
+	
+	if (ANexusPlayerbase* Player = Cast<ANexusPlayerbase>(OtherActor))
+	{
+		Player->RegisterNearbyInteractable(this);
+	}
+}
+
+void ANexusCharacterBase::OnLootSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+	if (ANexusPlayerbase* Player = Cast<ANexusPlayerbase>(OtherActor))
+	{
+		Player->UnregisterNearbyInteractable(this);
+	}
+}
+
+
