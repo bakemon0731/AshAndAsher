@@ -180,19 +180,21 @@ public:
 	UFUNCTION(Server,Reliable)
 	void Server_DropRemoteItem(UAC_EquipmentComponent* RemoteComponent, FGuid InstanceID);
 	
-	// サーバー専用：装備品とインベントリを全て取り出して返し、自分は空になる（死亡時のドロップ用）
+	// サーバー専用：装備を外して取り出す（死体の装備を回収する時に使う）
+	bool Internal_RemoveEquippedItem(EEquipmentSlot Slot, UEquipmentDataAsset*& OutItem);
+
+	// 死体の装備を、プレイヤー自身のインベントリへ移す（プレイヤー自身のコンポーネントから呼ぶこと）
 	UFUNCTION(BlueprintCallable, Category = "Equipment")
-	void ExtractAllItems(TArray<UEquipmentDataAsset*>& OutItems);
-	
+	void RequestTransferEquippedFromRemote(UAC_EquipmentComponent* RemoteComponent, EEquipmentSlot Slot);
+
+	UFUNCTION(Server, Reliable)
+	void Server_TransferEquippedFromRemote(UAC_EquipmentComponent* RemoteComponent, EEquipmentSlot Slot);
 protected:
 
 	// 登録されたAbility System Componentのキャッシュ
 	UPROPERTY()
 	TObjectPtr<UAbilitySystemComponent> CachedASC;
 	
-	// スロットごとの装備状況を保持するMap（Key: スロット, Value: 装備アイテムとエフェクト情報）
-	// （Replicatedにすると構造体内配列の同期が複雑になるため、
-	// クライアントへの見た目反映はOnRep_Inventory + 個別Getterの組み合わせで対応）
 	UPROPERTY()
 	TMap<EEquipmentSlot,FEquippedItemEntry> EquippedItems;
 	
@@ -218,14 +220,16 @@ protected:
 	// 装備アイテムを外す際に、適用していたGameplay Effect（意思、知識）を削除する
 	void RemoveItemEffects(FEquippedItemEntry& Entry);
 	
-	
 	// 空いているグリッド座標を探す
 	bool FindFreeGridSlot(UEquipmentDataAsset* Item, int32& OutX, int32& OutY) const;
-	
 	
 	// ネットワーク同期させる変数を登録するための必須関数
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 	
+	void RebuildEquippedSlotsReplicated();
+	
+	//クライアントが生きている他プレイヤーの装備を盗めないようにするための検証
+	bool IsValidLootTarget(const UAC_EquipmentComponent* Remote) const;
 public:
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
