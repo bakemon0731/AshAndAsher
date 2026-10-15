@@ -358,21 +358,54 @@ void UAC_EquipmentComponent::RequestMoveItemInventory(FGuid InstanceID, int32 Ne
 	Server_MoveItemInInventory(InstanceID,NewGridX,NewGridY);
 }
 
-bool UAC_EquipmentComponent::AddItemToInventory(UEquipmentDataAsset* Item)
+bool UAC_EquipmentComponent::AddItemToInventory(UEquipmentDataAsset* Item,int32 Count )
 {
-	int32 FreeX, FreeY;
-	if (!Item || !FindFreeGridSlot(Item, FreeX, FreeY))
+	if (!Item || Count <= 0)
 	{
 		return false;
 	}
 	
-	FInventoryItemInstance NewInstance;
-	NewInstance.Item = Item;
-	NewInstance.GridX = FreeX;
-	NewInstance.GridY = FreeY;
-	NewInstance.InstanceID = FGuid::NewGuid();
-	InventoryItemsInstance.Add(NewInstance);
-
+	// 入りきらない時に戻す用
+	const TArray<FInventoryItemInstance> Backup = InventoryItemsInstance;
+	const int32 MaxStack = FMath::Max(1,Item->MaxStackSize);
+	int32 Remaining = Count;
+	
+	//既存の同じアイテムのスタックに空きがあれば、先に埋める
+	for (FInventoryItemInstance& Inst : InventoryItemsInstance)
+	{
+		if (Remaining <= 0)
+		{
+			break;
+		}
+		if (Inst.Item == Item && Inst.StackCount < MaxStack)
+		{
+			const int32 AddNum = FMath::Min(MaxStack - Inst.StackCount,Remaining);
+			Inst.StackCount += AddNum;
+			Remaining -= AddNum;
+		}
+	}
+	
+	//残りは新しいスタックとして、空きマスに置く
+	while (Remaining >0)
+	{
+		int32 FreeX, FreeY;
+		if (!FindFreeGridSlot(Item, FreeX, FreeY))
+		{
+			// 全部は入らないので、何も変えずに失敗にする
+			InventoryItemsInstance = Backup;
+			return false;
+		}
+		
+		FInventoryItemInstance NewInstance;
+		NewInstance.Item = Item;
+		NewInstance.GridX = FreeX;
+		NewInstance.GridY = FreeY;
+		NewInstance.InstanceID = FGuid::NewGuid();
+		NewInstance.StackCount = FMath::Min(MaxStack, Remaining);
+		Remaining -= NewInstance.StackCount;
+		InventoryItemsInstance.Add(NewInstance);
+	}
+	
 	OnRep_Inventory();
 	return true;
 }
@@ -436,12 +469,14 @@ void UAC_EquipmentComponent::Server_PickupItem_Implementation(class AWorldItemAc
 {
 	if (!WorldItem || !WorldItem->ItemData)
 	{
+		// 全部は入らないので拾わない
 		return;
 	}
 	
 	// インベントリが満杯なら拾えない
-	if (!AddItemToInventory(WorldItem->ItemData))
+	if (!AddItemToInventory(WorldItem->ItemData, WorldItem->StackCount))
 	{
+		
 		return;
 	}
 	
@@ -466,6 +501,8 @@ void UAC_EquipmentComponent::Server_DropItem_Implementation(FGuid InstanceID)
 	}
 	
 	UEquipmentDataAsset* Item = InventoryItemsInstance[InstanceIndex].Item;
+	//削除する前にスタック数（個数）を控えておく
+	const int32 DropCount = InventoryItemsInstance[InstanceIndex].StackCount;
 	AActor* Owner = GetOwner();
 	// 共通クラスではなく、アイテムごとに指定されたクラスを使う
 	TSubclassOf<AWorldItemActor> ClassToSpawn = Item ? Item->WorldItemClass : nullptr;
@@ -482,8 +519,12 @@ void UAC_EquipmentComponent::Server_DropItem_Implementation(FGuid InstanceID)
 	AWorldItemActor* SpawnedItem = GetWorld()->SpawnActorDeferred<AWorldItemActor>(ClassToSpawn, SpawnTransform, Owner);
 	if (SpawnedItem)
 	{
-		SpawnedItem->ItemData = Item; // BeginPlayより前にデータをセット
-		SpawnedItem->FinishSpawning(SpawnTransform); // ここでBeginPlayが走る
+		// BeginPlayより前にデータをセット
+		SpawnedItem->ItemData = Item; 
+		//ワールドアイテムにスタック数を設定
+		SpawnedItem->StackCount = DropCount;
+		// ここでBeginPlayが走る
+		SpawnedItem->FinishSpawning(SpawnTransform); 
 	}
 	
 	InventoryItemsInstance.RemoveAt(InstanceIndex);
@@ -499,6 +540,42 @@ void UAC_EquipmentComponent::Server_MoveItemInInventory_Implementation(FGuid Ins
 
 void UAC_EquipmentComponent::Internal_MoveInstance(FGuid InstanceID, int32 NewGridX, int32 NewGridY)
 {
+	const int32 SrcIdx = InventoryItemsInstance.IndexOfByPredicate(
+		[&](const FInventoryItemInstance& I) {return I.InstanceID == InstanceID;});
+	if (SrcIdx == INDEX_NONE)
+	{
+		return;
+	}
+	
+	// ドロップしたマスに、同じアイテムのスタックがあれば合流する
+	for (int32 i = 0; i < InventoryItemsInstance.Num(); i++)
+	{
+		if (i == SrcIdx)
+		{
+			continue;
+		}
+		
+		FInventoryItemInstance& Dst = InventoryItemsInstance[i];
+		FInventoryItemInstance& Src = InventoryItemsInstance[SrcIdx];
+		
+		const bool bCursorOnDst = Dst.Item
+			&& NewGridX >= Dst.GridX && NewGridX < Dst.GridX + Dst.Item->GridWidth
+			&& NewGridY >= Dst.GridY && NewGridY < Dst.GridY + Dst.Item->GridHeight;
+
+		if (bCursorOnDst && Dst.Item == Src.Item && Dst.StackCount < Dst.Item->MaxStackSize)
+		{
+			const int32 MoveNum = FMath::Min(Dst.Item->MaxStackSize - Dst.StackCount, Src.StackCount);
+			Dst.StackCount += MoveNum;
+			Src.StackCount -= MoveNum;
+			if (Src.StackCount <= 0)
+			{
+				InventoryItemsInstance.RemoveAt(SrcIdx);
+			}
+			OnRep_Inventory();
+			return;
+		}
+	}
+	
 	for (FInventoryItemInstance& Instance : InventoryItemsInstance)
 	{
 		if (Instance.InstanceID == InstanceID)
@@ -549,10 +626,10 @@ void UAC_EquipmentComponent::Server_TransferFromRemote_Implementation(UAC_Equipm
 		return;
 	}
 
-	if (!AddItemToInventory(Removed.Item))
+	if (!AddItemToInventory(Removed.Item,Removed.StackCount))
 	{
 		// 自分側に空きが無かった場合、相手側に戻す
-		RemoteComponent->AddItemToInventory(Removed.Item);
+		RemoteComponent->AddItemToInventory(Removed.Item,Removed.StackCount);
 	}
 }
 

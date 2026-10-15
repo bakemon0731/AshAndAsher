@@ -60,6 +60,10 @@ struct FInventoryItemInstance
 	// 同じItemを複数持つ場合の識別用（ドラッグ操作でどのインスタンスか特定するため）
 	UPROPERTY(BlueprintReadOnly)
 	FGuid InstanceID;
+	
+	//このアイテムインスタンスが所持しているスタック数
+	UPROPERTY(BlueprintReadOnly)
+	int32 StackCount = 1;
 };
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
@@ -97,6 +101,7 @@ public:
 	//移動速度ペナルティ用の汎用GE（SetByCallerで数値を渡して使う)
 	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="Equipment|Weight")
 	TSubclassOf<UGameplayEffect> MoveSpeedPenaltyEffect;
+
 	
 public:
 	
@@ -131,8 +136,8 @@ public:
 	void Server_MoveItemInInventory(FGuid InstanceID,int32 NewGridX, int32 NewGridY);
 	
 	//初期アイテムを付与するヘルパー関数
-	UFUNCTION(Blueprintable,Category="Equipment")
-	bool AddItemToInventory(UEquipmentDataAsset* Item);
+	UFUNCTION(BlueprintCallable,Category="Equipment")
+	bool AddItemToInventory(UEquipmentDataAsset* Item,int32 Count = 1);
 
 	// インベントリのアイテムをワールドに落とす
 	UFUNCTION(BlueprintCallable, Category="Equipment")
@@ -197,6 +202,7 @@ protected:
 	
 	UPROPERTY()
 	TMap<EEquipmentSlot,FEquippedItemEntry> EquippedItems;
+
 	
 protected:
 	// Called when the game starts

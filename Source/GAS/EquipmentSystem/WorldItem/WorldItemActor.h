@@ -27,6 +27,10 @@ public:
 	//AC_EquipmentComponentのスポーン時にドロップしたアイテムのデータを格納する変数
 	UPROPERTY(ReplicatedUsing = OnRep_ItemData, EditAnywhere,BlueprintReadOnly,Category= "Item")
 	TObjectPtr<UEquipmentDataAsset> ItemData;
+
+	//ドロップ時に個数を保てるよう変数を追加。
+	UPROPERTY(Replicated,EditAnywhere,BlueprintReadOnly,Category= "Item")
+	int32 StackCount = 1;
 	
 public:
 	UFUNCTION()
@@ -47,6 +51,7 @@ public:
 	virtual FText GetActorDisplayName_Implementation() const override;
 	virtual FLinearColor GetDisplayNameColor_Implementation() const override;
 	virtual void OnInteract_Implementation(AActor* Interactor) override;
+
 	
 protected:
 	// Called when the game starts or when spawned

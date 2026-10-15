@@ -31,6 +31,7 @@ void AWorldItemActor::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AWorldItemActor, ItemData);
+	DOREPLIFETIME(AWorldItemActor, StackCount);
 }
 
 FText AWorldItemActor::GetInteractionText_Implementation() const
