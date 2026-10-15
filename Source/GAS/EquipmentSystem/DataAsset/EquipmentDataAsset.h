@@ -6,6 +6,7 @@
 #include "Engine/DataAsset.h"
 #include "GameplayEffect.h"
 #include "GAS/Enum/Rarity.h"
+#include "GAS/Enum/EquipmentType.h"
 #include "EquipmentDataAsset.generated.h"
 
 /**
@@ -77,4 +78,12 @@ public:
 	// 移動速度ペナルティ値（正の数で入力。例：10.0）
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment",meta = (ClampMin = "0.0"))
 	float MoveSpeedPenalty = 0.0f;
+	
+	//このアイテムを１つのマスに重ねれる最大数（装備品は１のまま）
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item",meta = (ClampMin = "1"))
+	int32 MaxStackSize = 1;
+	
+	//このアイテムの種類
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")
+	EItemCategory Category = EItemCategory::Equipment;
 };
