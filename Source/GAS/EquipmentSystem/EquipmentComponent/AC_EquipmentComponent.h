@@ -220,6 +220,8 @@ public:
 	UFUNCTION(Server, Reliable)
 	void Server_TransferEquippedFromRemote(UAC_EquipmentComponent* RemoteComponent, EEquipmentSlot Slot);
 	
+	
+	// ===================== ユーティリティスロット =====================
 	UFUNCTION(BlueprintPure,Category="Utility")
 	FUtilitySlotEntry GetUtilitySlot(int32 SlotIndex) const;
 	
@@ -262,6 +264,12 @@ public:
 	void RequestTransferUtilityFromRemote(UAC_EquipmentComponent* RemoteComponent, int32 SlotIndex);
 	UFUNCTION(Server, Reliable)
 	void Server_TransferUtilityFromRemote(UAC_EquipmentComponent* RemoteComponent, int32 SlotIndex);
+	
+	// ユーティリティスロット同士の入れ替え・合流
+	UFUNCTION(BlueprintCallable, Category = "Utility")
+	void RequestSwapUtilitySlots(int32 SlotA, int32 SlotB);
+	UFUNCTION(Server, Reliable)
+	void Server_SwapUtilitySlots(int32 SlotA, int32 SlotB);
 	
 protected:
 

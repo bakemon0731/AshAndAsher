@@ -25,6 +25,7 @@ enum class EEquipmentSlot : uint8
 	Cloak       UMETA(DisplayName = "マント"),
 	Ring        UMETA(DisplayName = "指輪"),
 	Pendant		UMETA(DisplayName = "ネックレス"),
+	Utility     UMETA(DisplayName = "ユーティリティ"),
 	None        UMETA(DisplayName = "None")
 };
 
