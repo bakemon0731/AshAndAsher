@@ -972,7 +972,7 @@ void UAC_EquipmentComponent::RequestTransferUtilityFromRemote(UAC_EquipmentCompo
 }
 
 void UAC_EquipmentComponent::Server_TransferUtilityFromRemote_Implementation(UAC_EquipmentComponent* RemoteComponent,
-	int32 SlotIndex)
+                                                                             int32 SlotIndex)
 {
 	if (!RemoteComponent || RemoteComponent == this || !IsValidLootTarget(RemoteComponent))
 	{
@@ -995,4 +995,70 @@ void UAC_EquipmentComponent::Server_TransferUtilityFromRemote_Implementation(UAC
 	RemoteComponent->Internal_RemoveUtilitySlot(SlotIndex, Removed);
 }
 
+void UAC_EquipmentComponent::RequestSwapUtilitySlots(int32 SlotA, int32 SlotB)
+{
+	Server_SwapUtilitySlots(SlotA, SlotB);
+}
+
+void UAC_EquipmentComponent::Server_SwapUtilitySlots_Implementation(int32 SlotA, int32 SlotB)
+{
+	if (SlotA == SlotB || !UtilitySlots.IsValidIndex(SlotA) ||  !UtilitySlots.IsValidIndex(SlotB))
+	{
+		return;
+	}
+	
+	FUtilitySlotEntry& From = UtilitySlots[SlotA];
+	FUtilitySlotEntry& To = UtilitySlots[SlotB];
+	if (!From.Item)
+	{
+		// 動かす物が無い
+		return;
+	}
+	
+	const int32 OldActive = ActiveUtilitySlot;
+	
+	if (To.Item == From.Item)
+	{
+		// 同じアイテム：先に空きがあれば、入る分だけ重ねる
+		const int32 MaxStack = FMath::Max(1,From.Item->MaxStackSize);
+		if (To.StackCount >= MaxStack)
+		{
+			// 先が満杯なら何もしない
+			return;
+		}
+		
+		const int32 Move = FMath::Min(MaxStack - To.StackCount, From.StackCount);
+		To.StackCount += Move;
+		From.StackCount -= Move;
+		
+		if (From.StackCount <= 0)
+		{
+			From = FUtilitySlotEntry();
+			if (ActiveUtilitySlot == SlotA)
+			{
+				// 手に持っていた分が全部移ったので、持ち替え先も動かす
+				ActiveUtilitySlot = SlotB;
+			}
+		}
+	}
+	else
+	{
+		// 別のアイテム、または空のスロット：中身ごと入れ替える
+		UtilitySlots.Swap(SlotA, SlotB);
+		if (ActiveUtilitySlot == SlotA)
+		{
+			ActiveUtilitySlot = SlotB;
+		}
+		else if (ActiveUtilitySlot == SlotB)
+		{
+			ActiveUtilitySlot = SlotA;
+		}
+	}
+	
+	if (ActiveUtilitySlot != OldActive)
+	{
+		OnRep_ActiveUtilitySlots();
+	}
+	OnRep_UtilitySlots();
+}
 
