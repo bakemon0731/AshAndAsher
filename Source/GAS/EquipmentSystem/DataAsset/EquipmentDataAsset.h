@@ -86,4 +86,12 @@ public:
 	//このアイテムの種類
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")
 	EItemCategory Category = EItemCategory::Equipment;
+	
+	//このアイテムを使用した時に自分へ適用するGE（回復など）
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item|Use")
+	TArray<TSubclassOf<UGameplayEffect>> UseEffects;
+	
+	//使用後、次に使えるまでの秒数
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item|Use", meta=(ClampMin = "0.0"))
+	float UseCooldown = 1.0f;
 };
