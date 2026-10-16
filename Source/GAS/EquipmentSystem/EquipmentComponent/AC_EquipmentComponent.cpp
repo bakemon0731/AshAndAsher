@@ -14,6 +14,8 @@ UAC_EquipmentComponent::UAC_EquipmentComponent()
 	
 	// このコンポーネントをネットワーク経由で同期（レプリケーション）するように設定
 	SetIsReplicatedByDefault(true);
+	
+	UtilitySlots.SetNum(NumUtilitySlots);
 }
 
 void UAC_EquipmentComponent::BeginPlay()
@@ -41,9 +43,11 @@ void UAC_EquipmentComponent::GetLifetimeReplicatedProps(TArray<class FLifetimePr
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	
-	// InventoryItems 配列を同期対象として登録
+	
 	DOREPLIFETIME(UAC_EquipmentComponent,InventoryItemsInstance);
 	DOREPLIFETIME(UAC_EquipmentComponent, EquippedSlotsReplicated);
+	DOREPLIFETIME(UAC_EquipmentComponent, UtilitySlots);
+	DOREPLIFETIME(UAC_EquipmentComponent, ActiveUtilitySlot);
 }
 
 void UAC_EquipmentComponent::RebuildEquippedSlotsReplicated()
@@ -666,6 +670,7 @@ void UAC_EquipmentComponent::RequestTransferEquippedFromRemote(UAC_EquipmentComp
 	Server_TransferEquippedFromRemote(RemoteComponent, Slot);
 }
 
+
 // 【Remote操作の起点】プレイヤー自身のコンポーネントから呼ばれる想定（死体側RPCはクライアントから届かないため）
 void UAC_EquipmentComponent::Server_TransferEquippedFromRemote_Implementation(UAC_EquipmentComponent* RemoteComponent,
 	EEquipmentSlot Slot)
@@ -716,3 +721,228 @@ void UAC_EquipmentComponent::Server_MoveRemoteItem_Implementation(UAC_EquipmentC
 	}
 	RemoteComponent->Internal_MoveInstance(InstanceID, NewGridX, NewGridY);
 }
+
+// ===================== ユーティリティスロット =====================
+
+void UAC_EquipmentComponent::OnRep_UtilitySlots()
+{
+	OnUtilityChanged.Broadcast();
+}
+
+void UAC_EquipmentComponent::OnRep_ActiveUtilitySlots()
+{
+	OnUtilityChanged.Broadcast();
+}
+
+FUtilitySlotEntry UAC_EquipmentComponent::GetUtilitySlot(int32 SlotIndex) const
+{
+	return UtilitySlots.IsValidIndex(SlotIndex) ? UtilitySlots[SlotIndex] : FUtilitySlotEntry();
+}
+
+bool UAC_EquipmentComponent::ConSetUtilityItem(UEquipmentDataAsset* Item) const
+{
+	return Item && Item->Category == EItemCategory::Consumable && Item->UseEffects.Num() > 0;
+}
+
+void UAC_EquipmentComponent::RequestEquipUtility(FGuid InstanceID, int32 SlotIndex)
+{
+	Server_EquipUtility(InstanceID, SlotIndex);
+}
+
+void UAC_EquipmentComponent::Server_EquipUtility_Implementation(FGuid InstanceID, int32 SlotIndex)
+{
+	if (!UtilitySlots.IsValidIndex(SlotIndex))
+	{
+		return;
+	}
+	
+	const int32 SrcIdx = InventoryItemsInstance.IndexOfByPredicate(
+		[&](const FInventoryItemInstance& I) {return I.InstanceID == InstanceID;});
+	if (SrcIdx == INDEX_NONE)
+	{
+		return;
+	}
+	
+	UEquipmentDataAsset* Item = InventoryItemsInstance[SrcIdx].Item;
+	if (!ConSetUtilityItem(Item))
+	{
+		return;
+	}
+	
+	const int32 Count = InventoryItemsInstance[SrcIdx].StackCount;
+	FUtilitySlotEntry& Slot = UtilitySlots[SlotIndex];
+	
+	// 同じアイテムが入っていて既に満杯なら、何もしない
+	if (Slot.Item == Item && Slot.StackCount >= Item->MaxStackSize)
+	{
+		return;
+	}
+	
+	// 失敗時に戻す用
+	const TArray<FInventoryItemInstance> Backup = InventoryItemsInstance;
+	InventoryItemsInstance.RemoveAt(SrcIdx);
+	
+	if (Slot.Item == Item)
+	{
+		//同じアイテムは入る分だけ合流し、残りはインベントリへ戻す
+		const int32 Move = FMath::Min(Count,Item->MaxStackSize - Slot.StackCount);
+		const int32 Rest = Count - Move;
+		if (Rest > 0 && !AddItemToInventory(Item, Rest))
+		{
+			InventoryItemsInstance = Backup;
+			return;
+		}
+		Slot.StackCount += Move;
+	}
+	else
+	{
+		// 別のアイテムが入っていれば、先にインベントリへ戻す（入らなければ全部取り消す）
+		if (Slot.Item && !AddItemToInventory(Slot.Item, Slot.StackCount))
+		{
+			InventoryItemsInstance = Backup;
+			return;
+		}
+		Slot.Item = Item;
+		Slot.StackCount = Count;
+	}
+	OnRep_Inventory();
+	OnRep_UtilitySlots();
+}
+
+void UAC_EquipmentComponent::RequestUnequipUtility(int32 SlotIndex)
+{
+	Server_UnequipUtility(SlotIndex);
+}
+
+void UAC_EquipmentComponent::Server_UnequipUtility_Implementation(int32 SlotIndex)
+{
+	if (!UtilitySlots.IsValidIndex(SlotIndex) || !UtilitySlots[SlotIndex].Item)
+	{
+		return;
+	}
+	
+	FUtilitySlotEntry& Slot = UtilitySlots[SlotIndex];
+	if (!AddItemToInventory(Slot.Item, Slot.StackCount))
+	{
+		// インベントリに空きが無ければ、外せない
+		return;
+	}
+	
+	Slot = FUtilitySlotEntry();
+	if (ActiveUtilitySlot == SlotIndex)
+	{
+		ActiveUtilitySlot = SlotIndex;
+		OnRep_ActiveUtilitySlots();
+	}
+	OnRep_UtilitySlots();
+}
+
+void UAC_EquipmentComponent::RequestCycleUtilityGroup(int32 GroupIndex)
+{
+	Server_CycleUtilityGroup(GroupIndex);
+}
+
+void UAC_EquipmentComponent::Server_CycleUtilityGroup_Implementation(int32 GroupIndex)
+{
+	if (GroupIndex < 0 || GroupIndex >= NumUtilitySlots / UtilitySlotsPerGroup)
+	{
+		return;
+	}
+	
+	const int32 First = GroupIndex * UtilitySlotsPerGroup;
+	const int32 Last = First + UtilitySlotsPerGroup - 1;
+	const bool InGroup = ActiveUtilitySlot >= First && ActiveUtilitySlot <= Last;
+	
+	int32 Next = INDEX_NONE;
+	
+	if (InGroup)
+	{
+		// すでにグループ内を選択している場合は次のスロットへ進む
+		Next = ActiveUtilitySlot + 1;
+		if (Next > Last)
+		{
+			// グループの最後まで行ったら最初のスロットに戻す（ループさせる）
+			Next = First;
+		}
+	}
+	else
+	{
+		// グループ外（武器など）にいる場合は、グループの先頭を選択する
+		Next = First;
+	}
+	
+	ActiveUtilitySlot = Next;
+	OnRep_ActiveUtilitySlots();
+}
+
+void UAC_EquipmentComponent::RequestClearActiveUtility()
+{
+	Server_ClearActiveUtility();
+}
+
+void UAC_EquipmentComponent::Server_ClearActiveUtility_Implementation()
+{
+	if (ActiveUtilitySlot != INDEX_NONE)
+	{
+		ActiveUtilitySlot = INDEX_NONE;
+		OnRep_ActiveUtilitySlots();
+	}
+}
+
+void UAC_EquipmentComponent::RequestUseActiveUtility()
+{
+	Server_UseActiveUtility();
+}
+
+void UAC_EquipmentComponent::Server_UseActiveUtility_Implementation()
+{
+	if (!UtilitySlots.IsValidIndex(ActiveUtilitySlot) || !CachedASC)
+	{
+		return;
+	}
+	
+	const ANexusCharacterBase* OwnerChar = Cast<ANexusCharacterBase>(GetOwner());
+	if (OwnerChar && OwnerChar -> IsCorpse())
+	{
+		// 死んでいる間は使えない
+		return;
+	}
+	
+	FUtilitySlotEntry& Slot = UtilitySlots[ActiveUtilitySlot];
+	if (!Slot.Item || Slot.StackCount <= 0)
+	{
+		return;
+	}
+	
+	const double Now = GetWorld()->GetTimeSeconds();
+	if (Now < NextUtilityUseTime)
+	{
+		return;
+	}
+	NextUtilityUseTime = Now + Slot.Item->UseCooldown;
+	
+	for (TSubclassOf<UGameplayEffect> EffectClass : Slot.Item -> UseEffects)
+	{
+		if (!EffectClass)
+		{
+			continue;
+		}
+		FGameplayEffectContextHandle Context = CachedASC->MakeEffectContext();
+		FGameplayEffectSpecHandle Spec = CachedASC->MakeOutgoingSpec(EffectClass, 1.f, Context);
+		if (Spec.IsValid())
+		{
+			CachedASC->ApplyGameplayEffectSpecToSelf(*Spec.Data.Get());
+		}
+	}
+	
+	Slot.StackCount--;
+	if (Slot.StackCount <= 0)
+	{
+		Slot = FUtilitySlotEntry();
+		// 使い切ったら武器に戻る
+		ActiveUtilitySlot = INDEX_NONE;
+		OnRep_ActiveUtilitySlots();
+	}
+	OnRep_UtilitySlots();
+}
+

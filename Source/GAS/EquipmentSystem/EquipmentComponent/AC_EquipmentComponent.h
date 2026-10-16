@@ -14,9 +14,10 @@
 
 //イベントディスパッチャーの宣言
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnEquipmentChanged);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnUtilityChanged);
 
 // 装備中のアイテムとそのアイテムによって付与されたエフェクトを管理する構造体
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FEquippedItemEntry
 {
 	GENERATED_BODY()
@@ -66,6 +67,20 @@ struct FInventoryItemInstance
 	int32 StackCount = 1;
 };
 
+USTRUCT(BlueprintType)
+struct FUtilitySlotEntry
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(BlueprintReadOnly)
+	TObjectPtr<UEquipmentDataAsset> Item = nullptr;
+	
+	UPROPERTY(BlueprintReadOnly)
+	int32 StackCount = 0;
+};
+
+
+
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class GAS_API UAC_EquipmentComponent : public UActorComponent
 {
@@ -102,6 +117,21 @@ public:
 	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="Equipment|Weight")
 	TSubclassOf<UGameplayEffect> MoveSpeedPenaltyEffect;
 
+	// 左3 + 右3
+	static constexpr int32 NumUtilitySlots = 6;
+	static constexpr int32 UtilitySlotsPerGroup = 3;
+	
+	//0〜2 = 左グループ(3キー)、3〜5 = 右グループ(4キー)
+	UPROPERTY(ReplicatedUsing = OnRep_UtilitySlots,BlueprintReadOnly,Category= "Utility")
+	TArray<FUtilitySlotEntry> UtilitySlots;
+	
+	// 今手に持っているスロット。INDEX_NONE(-1) なら武器を持っている
+	UPROPERTY(ReplicatedUsing = OnRep_ActiveUtilitySlots,BlueprintReadOnly,Category= "Utility")
+	int32 ActiveUtilitySlot = INDEX_NONE;
+	
+	//イベントディスパッチの定義(FOnUtilityChanged)の変数
+	UPROPERTY(BlueprintAssignable, Category="Utility")
+	FOnUtilityChanged OnUtilityChanged;
 	
 public:
 	
@@ -167,21 +197,18 @@ public:
 	// 遠隔コンポーネント(死体等)のアイテムを「自分(プレイヤー)」に転送する
 	UFUNCTION(BlueprintCallable, Category = "Equipment")
 	void RequestTransferFromRemote(UAC_EquipmentComponent* RemoteComponent, FGuid InstanceID);
-
 	UFUNCTION(Server, Reliable)
 	void Server_TransferFromRemote(UAC_EquipmentComponent* RemoteComponent, FGuid InstanceID);
 
 	// 遠隔コンポーネント(死体等)の中で、アイテムを並べ替える
 	UFUNCTION(BlueprintCallable, Category = "Equipment")
 	void RequestMoveRemoteItem(UAC_EquipmentComponent* RemoteComponent, FGuid InstanceID, int32 NewGridX, int32 NewGridY);
-
 	UFUNCTION(Server, Reliable)
 	void Server_MoveRemoteItem(UAC_EquipmentComponent* RemoteComponent, FGuid InstanceID, int32 NewGridX, int32 NewGridY);
 	
 	// 遠隔コンポーネント(死体等)のアイテムをワールドに落とす要求
 	UFUNCTION(BlueprintCallable, Category = "Equipment")
 	void RequestDropRemoteItem(UAC_EquipmentComponent* RemoteComponent, FGuid InstanceID);
-	
 	UFUNCTION(Server,Reliable)
 	void Server_DropRemoteItem(UAC_EquipmentComponent* RemoteComponent, FGuid InstanceID);
 	
@@ -191,9 +218,46 @@ public:
 	// 死体の装備を、プレイヤー自身のインベントリへ移す（プレイヤー自身のコンポーネントから呼ぶこと）
 	UFUNCTION(BlueprintCallable, Category = "Equipment")
 	void RequestTransferEquippedFromRemote(UAC_EquipmentComponent* RemoteComponent, EEquipmentSlot Slot);
-
 	UFUNCTION(Server, Reliable)
 	void Server_TransferEquippedFromRemote(UAC_EquipmentComponent* RemoteComponent, EEquipmentSlot Slot);
+	
+	UFUNCTION(BlueprintPure,Category="Utility")
+	FUtilitySlotEntry GetUtilitySlot(int32 SlotIndex) const;
+	
+	// ユーティリティスロットに入れられるアイテムか（UIのドロップ判定にも使う)
+	UFUNCTION(BlueprintPure,Category="Utility")
+	bool ConSetUtilityItem(UEquipmentDataAsset* Item) const;
+	
+	// インベントリのスタックを、指定スロットへ入れる
+	UFUNCTION(BlueprintCallable,Category="Utility")
+	void RequestEquipUtility(FGuid InstanceID,int32 SlotIndex);
+	UFUNCTION(Server,Reliable)
+	void Server_EquipUtility(FGuid InstanceID,int32 SlotIndex);
+	
+	// スロットの中身をインベントリへ戻す
+	UFUNCTION(BlueprintCallable, Category = "Utility")
+	void RequestUnequipUtility(int32 SlotIndex);
+	UFUNCTION(Server, Reliable)
+	void Server_UnequipUtility(int32 SlotIndex);
+
+	// 3キー(GroupIndex=0)・4キー(GroupIndex=1)：グループ内を順に持ち替える
+	UFUNCTION(BlueprintCallable, Category = "Utility")
+	void RequestCycleUtilityGroup(int32 GroupIndex);
+	UFUNCTION(Server,Reliable)
+	void Server_CycleUtilityGroup(int32 GroupIndex);
+	
+	// 手に持っているものを仕舞って、武器に戻る
+	UFUNCTION(BlueprintCallable, Category = "Utility")
+	void RequestClearActiveUtility();
+	UFUNCTION(Server,Reliable)
+	void Server_ClearActiveUtility();
+	
+	// 左クリック：持っているアイテムを使う
+	UFUNCTION(BlueprintCallable, Category = "Utility")
+	void RequestUseActiveUtility();
+	UFUNCTION(Server,Reliable)
+	void Server_UseActiveUtility();
+	
 protected:
 
 	// 登録されたAbility System Componentのキャッシュ
@@ -236,6 +300,15 @@ protected:
 	
 	//クライアントが生きている他プレイヤーの装備を盗めないようにするための検証
 	bool IsValidLootTarget(const UAC_EquipmentComponent* Remote) const;
+	
+	UFUNCTION()
+	void OnRep_UtilitySlots();
+	
+	UFUNCTION()
+	void OnRep_ActiveUtilitySlots();
+	
+	//サーバーのみ使用
+	double NextUtilityUseTime = 0.0f;
 public:
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
