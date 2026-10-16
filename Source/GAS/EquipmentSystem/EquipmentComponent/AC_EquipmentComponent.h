@@ -186,7 +186,6 @@ public:
 	// 自分のインベントリにある指定インスタンスを、別のコンポーネントへ移動する（Playerの場合のみ動作）
 	UFUNCTION(BlueprintCallable,Category="Equipment")
 	void RequestTransferItem(FGuid InstanceID,UAC_EquipmentComponent* TargetComponent);
-	
 	UFUNCTION(Server,Reliable)
 	void Server_TransferItem(FGuid InstanceID,UAC_EquipmentComponent* TargetComponent);
 	
@@ -226,7 +225,7 @@ public:
 	
 	// ユーティリティスロットに入れられるアイテムか（UIのドロップ判定にも使う)
 	UFUNCTION(BlueprintPure,Category="Utility")
-	bool ConSetUtilityItem(UEquipmentDataAsset* Item) const;
+	bool CanSetUtilityItem(UEquipmentDataAsset* Item) const;
 	
 	// インベントリのスタックを、指定スロットへ入れる
 	UFUNCTION(BlueprintCallable,Category="Utility")
@@ -257,6 +256,12 @@ public:
 	void RequestUseActiveUtility();
 	UFUNCTION(Server,Reliable)
 	void Server_UseActiveUtility();
+	
+	// 死体のユーティリティスロットを、プレイヤー自身のインベントリへ移す（プレイヤー自身のコンポーネントから呼ぶこと）
+	UFUNCTION(BlueprintCallable, Category = "Utility")
+	void RequestTransferUtilityFromRemote(UAC_EquipmentComponent* RemoteComponent, int32 SlotIndex);
+	UFUNCTION(Server, Reliable)
+	void Server_TransferUtilityFromRemote(UAC_EquipmentComponent* RemoteComponent, int32 SlotIndex);
 	
 protected:
 
@@ -309,6 +314,9 @@ protected:
 	
 	//サーバーのみ使用
 	double NextUtilityUseTime = 0.0f;
+	
+	// サーバー専用：ユーティリティスロットの中身を取り出す（死体から回収する時に使う）
+	bool Internal_RemoveUtilitySlot(int32 SlotIndex, FUtilitySlotEntry& OutEntry);
 public:
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType,

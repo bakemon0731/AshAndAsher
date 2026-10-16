@@ -31,6 +31,25 @@ void UAC_EquipmentComponent::BeginPlay()
 	}
 }
 
+bool UAC_EquipmentComponent::Internal_RemoveUtilitySlot(int32 SlotIndex, FUtilitySlotEntry& OutEntry)
+{
+	if (!UtilitySlots.IsValidIndex(SlotIndex) || !UtilitySlots[SlotIndex].Item)
+	{
+		return false;
+	}
+
+	OutEntry = UtilitySlots[SlotIndex];
+	UtilitySlots[SlotIndex] = FUtilitySlotEntry();
+
+	if (ActiveUtilitySlot == SlotIndex)
+	{
+		ActiveUtilitySlot = INDEX_NONE;
+		OnRep_ActiveUtilitySlots();
+	}
+	OnRep_UtilitySlots();
+	return true;
+}
+
 void UAC_EquipmentComponent::TickComponent(float DeltaTime, ELevelTick TickType,
                                            FActorComponentTickFunction* ThisTickFunction)
 {
@@ -459,7 +478,8 @@ void UAC_EquipmentComponent::Server_TransferItem_Implementation(FGuid InstanceID
 	}
 	
 	// 移動先に空きがあるか確認してから実行
-	if (!TargetComponent->AddItemToInventory(Item))
+	const int32 Count = InventoryItemsInstance[InstanceIndex].StackCount;
+	if (!TargetComponent->AddItemToInventory(Item, Count))
 	{
 		// 移動先が満杯なら何もしない
 		return;
@@ -739,7 +759,7 @@ FUtilitySlotEntry UAC_EquipmentComponent::GetUtilitySlot(int32 SlotIndex) const
 	return UtilitySlots.IsValidIndex(SlotIndex) ? UtilitySlots[SlotIndex] : FUtilitySlotEntry();
 }
 
-bool UAC_EquipmentComponent::ConSetUtilityItem(UEquipmentDataAsset* Item) const
+bool UAC_EquipmentComponent::CanSetUtilityItem(UEquipmentDataAsset* Item) const
 {
 	return Item && Item->Category == EItemCategory::Consumable && Item->UseEffects.Num() > 0;
 }
@@ -764,7 +784,7 @@ void UAC_EquipmentComponent::Server_EquipUtility_Implementation(FGuid InstanceID
 	}
 	
 	UEquipmentDataAsset* Item = InventoryItemsInstance[SrcIdx].Item;
-	if (!ConSetUtilityItem(Item))
+	if (!CanSetUtilityItem(Item))
 	{
 		return;
 	}
@@ -831,7 +851,7 @@ void UAC_EquipmentComponent::Server_UnequipUtility_Implementation(int32 SlotInde
 	Slot = FUtilitySlotEntry();
 	if (ActiveUtilitySlot == SlotIndex)
 	{
-		ActiveUtilitySlot = SlotIndex;
+		ActiveUtilitySlot = INDEX_NONE;
 		OnRep_ActiveUtilitySlots();
 	}
 	OnRep_UtilitySlots();
@@ -945,4 +965,34 @@ void UAC_EquipmentComponent::Server_UseActiveUtility_Implementation()
 	}
 	OnRep_UtilitySlots();
 }
+
+void UAC_EquipmentComponent::RequestTransferUtilityFromRemote(UAC_EquipmentComponent* RemoteComponent, int32 SlotIndex)
+{
+	Server_TransferUtilityFromRemote(RemoteComponent, SlotIndex);
+}
+
+void UAC_EquipmentComponent::Server_TransferUtilityFromRemote_Implementation(UAC_EquipmentComponent* RemoteComponent,
+	int32 SlotIndex)
+{
+	if (!RemoteComponent || RemoteComponent == this || !IsValidLootTarget(RemoteComponent))
+	{
+		return;
+	}
+
+	const FUtilitySlotEntry Peek = RemoteComponent->GetUtilitySlot(SlotIndex);
+	if (!Peek.Item)
+	{
+		return;
+	}
+
+	// 先に自分へ入れる。AddItemToInventoryは全部入らなければ何も変えずに失敗するので、入らない時は死体側も変わらない
+	if (!AddItemToInventory(Peek.Item, Peek.StackCount))
+	{
+		return;
+	}
+
+	FUtilitySlotEntry Removed;
+	RemoteComponent->Internal_RemoveUtilitySlot(SlotIndex, Removed);
+}
+
 
