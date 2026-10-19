@@ -5,7 +5,8 @@
 #include "GAS/EquipmentSystem/WorldItem/WorldItemActor.h"
 #include "GAS/GameplayAbilitySystem/Characters/NexusCharacterBase.h"
 #include "Net/UnrealNetwork.h"
-
+#include "GAS/Weapon/WeaponBase/WeaponBase.h"
+#include "GAS/Weapon/WeaponComponent/AC_WeaponComponent.h"
 
 
 UAC_EquipmentComponent::UAC_EquipmentComponent()
@@ -43,8 +44,7 @@ bool UAC_EquipmentComponent::Internal_RemoveUtilitySlot(int32 SlotIndex, FUtilit
 
 	if (ActiveUtilitySlot == SlotIndex)
 	{
-		ActiveUtilitySlot = INDEX_NONE;
-		OnRep_ActiveUtilitySlots();
+		Internal_SetActiveUtilitySlots(INDEX_NONE);
 	}
 	OnRep_UtilitySlots();
 	return true;
@@ -98,6 +98,15 @@ bool UAC_EquipmentComponent::IsValidLootTarget(const UAC_EquipmentComponent* Rem
 void UAC_EquipmentComponent::InitializeEquipmentSystem(UAbilitySystemComponent* InASC)
 {
 	CachedASC = InASC;
+	
+	//サーバーのみ：武器コンポーネントの持ち物の変化を監視
+	if (GetOwner() && GetOwner()->HasAuthority())
+	{
+		if (UAC_WeaponComponent* WeaponComp = GetOwner()->FindComponentByClass<UAC_WeaponComponent>())
+		{
+			WeaponComp->OnWeaponChanged.AddDynamic(this,&UAC_EquipmentComponent::HandleWeaponChanged);
+		}
+	}
 }
 
 // 特定の装備スロットに現在何が装備されているかを返す
@@ -742,6 +751,59 @@ void UAC_EquipmentComponent::Server_MoveRemoteItem_Implementation(UAC_EquipmentC
 	RemoteComponent->Internal_MoveInstance(InstanceID, NewGridX, NewGridY);
 }
 
+void UAC_EquipmentComponent::Internal_SetActiveUtilitySlots(int32 NewSlot)
+{
+	if (NewSlot == ActiveUtilitySlot)
+	{
+		return;
+	}
+
+	ActiveUtilitySlot = NewSlot;
+	OnRep_ActiveUtilitySlots();
+
+	UAC_WeaponComponent* WeaponComp = GetOwner() ? GetOwner()->FindComponentByClass<UAC_WeaponComponent>() : nullptr;
+	if (!WeaponComp)
+	{
+		return;
+	}
+
+	// 持つスロットがあり、HeldItemClass が設定されていれば出す。それ以外は元の武器（素手）へ戻す
+	TSubclassOf<AWeaponBase> HeldClass = nullptr;
+	if (UtilitySlots.IsValidIndex(NewSlot) && UtilitySlots[NewSlot].Item)
+	{
+		HeldClass = UtilitySlots[NewSlot].Item->HeldItemClass;
+	}
+
+	if (HeldClass)
+	{
+		WeaponComp->EquipHeldItem(HeldClass);
+	}
+	else
+	{
+		WeaponComp->ReturnFromHeldItem();
+	}
+}
+
+void UAC_EquipmentComponent::HandleWeaponChanged(AWeaponBase* NewWeapon)
+{
+	if (ActiveUtilitySlot == INDEX_NONE)
+	{
+		return;
+	}
+	
+	// 引数ではなく、今の状態を見て判断する（仕舞う動作の通知が遅れて届いても、誤って解除しない）
+	const UAC_WeaponComponent* WeaponComp = GetOwner()->FindComponentByClass<UAC_WeaponComponent>();
+	const AWeaponBase* Current = WeaponComp ? WeaponComp->EquippedWeapon : nullptr;
+	
+	if (!IsValid(Current) || !Current->IsHeldItem)
+	{
+		// 武器を持ったので、ユーティリティは持っていない状態にする
+		ActiveUtilitySlot = INDEX_NONE;
+		OnRep_ActiveUtilitySlots();
+	}
+}
+
+
 // ===================== ユーティリティスロット =====================
 
 void UAC_EquipmentComponent::OnRep_UtilitySlots()
@@ -851,8 +913,7 @@ void UAC_EquipmentComponent::Server_UnequipUtility_Implementation(int32 SlotInde
 	Slot = FUtilitySlotEntry();
 	if (ActiveUtilitySlot == SlotIndex)
 	{
-		ActiveUtilitySlot = INDEX_NONE;
-		OnRep_ActiveUtilitySlots();
+		Internal_SetActiveUtilitySlots(INDEX_NONE);
 	}
 	OnRep_UtilitySlots();
 }
@@ -891,8 +952,7 @@ void UAC_EquipmentComponent::Server_CycleUtilityGroup_Implementation(int32 Group
 		Next = First;
 	}
 	
-	ActiveUtilitySlot = Next;
-	OnRep_ActiveUtilitySlots();
+	Internal_SetActiveUtilitySlots(Next);
 }
 
 void UAC_EquipmentComponent::RequestClearActiveUtility()
@@ -904,8 +964,7 @@ void UAC_EquipmentComponent::Server_ClearActiveUtility_Implementation()
 {
 	if (ActiveUtilitySlot != INDEX_NONE)
 	{
-		ActiveUtilitySlot = INDEX_NONE;
-		OnRep_ActiveUtilitySlots();
+		Internal_SetActiveUtilitySlots(INDEX_NONE);
 	}
 }
 
@@ -960,8 +1019,7 @@ void UAC_EquipmentComponent::Server_UseActiveUtility_Implementation()
 	{
 		Slot = FUtilitySlotEntry();
 		// 使い切ったら武器に戻る
-		ActiveUtilitySlot = INDEX_NONE;
-		OnRep_ActiveUtilitySlots();
+		Internal_SetActiveUtilitySlots(INDEX_NONE);
 	}
 	OnRep_UtilitySlots();
 }
@@ -1015,8 +1073,6 @@ void UAC_EquipmentComponent::Server_SwapUtilitySlots_Implementation(int32 SlotA,
 		return;
 	}
 	
-	const int32 OldActive = ActiveUtilitySlot;
-	
 	if (To.Item == From.Item)
 	{
 		// 同じアイテム：先に空きがあれば、入る分だけ重ねる
@@ -1037,7 +1093,7 @@ void UAC_EquipmentComponent::Server_SwapUtilitySlots_Implementation(int32 SlotA,
 			if (ActiveUtilitySlot == SlotA)
 			{
 				// 手に持っていた分が全部移ったので、持ち替え先も動かす
-				ActiveUtilitySlot = SlotB;
+				Internal_SetActiveUtilitySlots(SlotB);
 			}
 		}
 	}
@@ -1047,18 +1103,14 @@ void UAC_EquipmentComponent::Server_SwapUtilitySlots_Implementation(int32 SlotA,
 		UtilitySlots.Swap(SlotA, SlotB);
 		if (ActiveUtilitySlot == SlotA)
 		{
-			ActiveUtilitySlot = SlotB;
+			Internal_SetActiveUtilitySlots(SlotB);
 		}
 		else if (ActiveUtilitySlot == SlotB)
 		{
-			ActiveUtilitySlot = SlotA;
+			Internal_SetActiveUtilitySlots(SlotA);
 		}
 	}
 	
-	if (ActiveUtilitySlot != OldActive)
-	{
-		OnRep_ActiveUtilitySlots();
-	}
 	OnRep_UtilitySlots();
 }
 

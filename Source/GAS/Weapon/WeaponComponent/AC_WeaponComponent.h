@@ -32,10 +32,51 @@ public:
 	UPROPERTY(BlueprintAssignable,BlueprintCallable,Category= "Weapon Events");
 	FOnWeaponEquipped OnWeaponEquipped;
 	
-	
 	UPROPERTY(BlueprintReadWrite,ReplicatedUsing = OnRep_EquippedWeapon,Category= "Weapon")
 	AWeaponBase* EquippedWeapon;
+	
+public:
 
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
+							   FActorComponentTickFunction* ThisTickFunction) override;
+	
+	// 武器を装備する関数
+	UFUNCTION(BlueprintCallable, Category= "Weapon")
+	void EquipWeapon (TSubclassOf<AWeaponBase> WeaponClass);
+	
+	// 武器を解除する関数
+	UFUNCTION(BlueprintCallable, Category= "Weapon")
+	void UnequipWeapon();
+	
+	// 手に持つための消耗品を出す。サーバー専用
+	void EquipHeldItem(TSubclassOf<AWeaponBase> HeldClass);
+	
+	//手に持っている消耗品を仕舞い、持つ前の武器または素手に戻る。サーバー専用
+	void ReturnFromHeldItem();
+	
+protected:
+	UPROPERTY(BlueprintReadOnly,Category= "Weapon")
+	ANexusCharacterBase* OwningCharacter;
+	
+	UPROPERTY(EditAnywhere,BlueprintReadOnly,Category= "Weapon")
+	TArray<TSubclassOf<AWeaponBase>> StartingWeapons;
+	
+	UPROPERTY(BlueprintReadOnly,Category= "Weapon")
+	TArray<AWeaponBase*> StowedWeapons;
+	
+	UPROPERTY(BlueprintReadWrite,Category= "Weapon")
+	bool IsWieldingWeapon;
+	
+	UPROPERTY(BlueprintReadOnly,Replicated,Category= "Weapon")
+	AWeaponBase* PreviouslyEquippedWeapon;
+	
+	UPROPERTY(EditAnywhere,Category="Weapon")
+	FSWeaponConfig UnarmedWeaponConfig;
+	
+	// 消耗品を持つ直前に持っていた武器のクラス。nullptrなら素手。
+	UPROPERTY(BlueprintReadOnly,Category= "Weapon")
+	TSubclassOf<AWeaponBase> WeaponBeforeHeld;
+	
 protected:
 
 	virtual void BeginPlay() override;
@@ -72,36 +113,4 @@ protected:
 	UFUNCTION(BlueprintCallable,Category= "Weapon")
 	void SetUnarmedProperties();
 	
-protected:
-	UPROPERTY(BlueprintReadOnly,Category= "Weapon")
-	ANexusCharacterBase* OwningCharacter;
-	
-	UPROPERTY(EditAnywhere,BlueprintReadOnly,Category= "Weapon")
-	TArray<TSubclassOf<AWeaponBase>> StartingWeapons;
-	
-	UPROPERTY(BlueprintReadOnly,Category= "Weapon")
-	TArray<AWeaponBase*> StowedWeapons;
-	
-	UPROPERTY(BlueprintReadWrite,Category= "Weapon")
-	bool IsWieldingWeapon;
-	
-	UPROPERTY(BlueprintReadOnly,Replicated,Category= "Weapon")
-	AWeaponBase* PreviouslyEquippedWeapon;
-	
-	UPROPERTY(EditAnywhere,Category="Weapon")
-	FSWeaponConfig UnarmedWeaponConfig;
-
-	
-public:
-
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
-	                           FActorComponentTickFunction* ThisTickFunction) override;
-	
-	// 武器を装備する関数
-	UFUNCTION(BlueprintCallable, Category= "Weapon")
-	void EquipWeapon (TSubclassOf<AWeaponBase> WeaponClass);
-	
-	// 武器を解除する関数
-	UFUNCTION(BlueprintCallable, Category= "Weapon")
-	void UnequipWeapon();
 };

@@ -169,4 +169,11 @@ public:
 	UFUNCTION(BlueprintCallable,Category = "Weapon|Material")
 	void ChangeWeaponPanner (float NewPanner);
 
+	// 手に持つ消耗品（ポーション等）として使う時にチェック。
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="HeldItem")
+	bool IsHeldItem = false;
+	
+	// 仕舞う動作の後、この秒数で消える（仕舞うモンタージュより少し長くする）
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="HeldItem",meta=(ClampMin = "0.1"))
+	float HeldItemDestroyDelay = 0.8f;
 };

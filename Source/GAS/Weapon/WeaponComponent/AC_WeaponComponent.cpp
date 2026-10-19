@@ -114,6 +114,9 @@ void UAC_WeaponComponent::EquipWeapon(TSubclassOf<AWeaponBase> WeaponClass)
 		return;
 	}
 	
+	// 武器キーで武器を出したので、持つ前の記録は不要
+	WeaponBeforeHeld = nullptr;
+	
 	// 現在の武器クラスをチェックし、同じなら終了、違うなら外す
 	if (IsValid(EquippedWeapon))
 	{
@@ -150,7 +153,14 @@ void UAC_WeaponComponent::UnequipWeapon()
 	if (IsValid(EquippedWeapon))
 	{
 		PreviouslyEquippedWeapon = EquippedWeapon;
+		
+		//消耗品は背中に戻さず、仕舞う動作の後に消す
+		if (EquippedWeapon->IsHeldItem)
+		{
+			EquippedWeapon->SetLifeSpan(EquippedWeapon->HeldItemDestroyDelay);
+		}
 	}
+	
 	// EquippedWeaponを空にする。
 	EquippedWeapon = nullptr;
 	
@@ -199,7 +209,7 @@ void UAC_WeaponComponent::SetEquippedWeaponProperties()
 	
 	// 移動速度/カメラを設定 (Break SMovementProperties)
 	UCharacterMovementComponent* MovementComp = OwningCharacter->GetCharacterMovement();
-	if (IsValid(MovementComp))
+	if (IsValid(MovementComp) && !EquippedWeapon->IsHeldItem)
 	{
 		FSMovementProperties MoveProps = WeaponConfig.MovementProperties;
 		
@@ -273,5 +283,76 @@ void UAC_WeaponComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 }
 
+//--------------------------------HeldItem-------------------------------
+void UAC_WeaponComponent::EquipHeldItem(TSubclassOf<AWeaponBase> HeldClass)
+{
+	UWorld* World = GetWorld();
+	if (!GetOwner()->HasAuthority() || !IsValid(OwningCharacter) || !HeldClass || !World)
+	{
+		return;
+	}
+	
+	// 既に同じ物を持っているなら何もしない
+	if (IsValid(EquippedWeapon) && EquippedWeapon->GetClass() == HeldClass)
+	{
+		return;
+	}
+	
+	// 持つ前の武器を覚える（別の消耗品から持ち替える時は、最初の記録を引き継ぐ）
+	if (!IsValid(EquippedWeapon))
+	{
+		WeaponBeforeHeld = nullptr;
+	}
+	else if (!EquippedWeapon->IsHeldItem)
+	{
+		WeaponBeforeHeld = EquippedWeapon->GetClass();
+	}
+	
+	//スポーンパラメーターの設定
+	FActorSpawnParameters SpawnParameters;
+	SpawnParameters.Instigator = OwningCharacter;
+	SpawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	
+	AWeaponBase* Held = World->SpawnActor<AWeaponBase>(HeldClass,FVector::ZeroVector,FRotator::ZeroRotator,SpawnParameters);
+	if (!Held)
+	{
+		return;
+	}
+	
+	// 常設の武器と違い、StowedWeaponsには入れない。（生成直後に手のソケットへ付けて、原点に出るのを防ぐため）
+	if (USkeletalMeshComponent* CharacterMesh = OwningCharacter->GetMesh())
+	{
+		Held->AttachToComponent(CharacterMesh,FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+			Held->WeaponConfig.EquippedSocketName);
+	}
+	
+	EquippedWeapon = Held;
+	SetEquippedWeaponProperties();
+}
 
+void UAC_WeaponComponent::ReturnFromHeldItem()
+{
+	if (!GetOwner()->HasAuthority())
+	{
+		return;
+	}
+	
+	// 既に武器キーで別の武器に替わっているなら、何もしない
+	if (!IsValid(EquippedWeapon) || !EquippedWeapon->IsHeldItem)
+	{
+		return;
+	}
+	
+	const TSubclassOf<AWeaponBase> Before = WeaponBeforeHeld;
+	WeaponBeforeHeld = nullptr;
+	
+	if (Before)
+	{
+		EquipWeapon(Before);
+	}
+	else
+	{
+		UnequipWeapon();
+	}
+}
 

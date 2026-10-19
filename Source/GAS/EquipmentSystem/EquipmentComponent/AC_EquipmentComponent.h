@@ -12,6 +12,7 @@
  * 装備品とインベントリを管理し、GASと連携するコンポーネント
  */
 
+class AWeaponBase;
 //イベントディスパッチャーの宣言
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnEquipmentChanged);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnUtilityChanged);
@@ -78,8 +79,6 @@ struct FUtilitySlotEntry
 	UPROPERTY(BlueprintReadOnly)
 	int32 StackCount = 0;
 };
-
-
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class GAS_API UAC_EquipmentComponent : public UActorComponent
@@ -317,14 +316,24 @@ protected:
 	UFUNCTION()
 	void OnRep_UtilitySlots();
 	
-	UFUNCTION()
+	UFUNCTION()	
 	void OnRep_ActiveUtilitySlots();
+	
+	// 手に持つスロットを変更し、武器コンポーネントへ反映する（サーバーのみ）
+	UFUNCTION()
+	void Internal_SetActiveUtilitySlots(int32 NewSlot);
+	
+	// 武器コンポーネントの持ち物が変わった時に呼ばれる（武器キーで武器に持ち替えた等）
+	UFUNCTION()
+	void HandleWeaponChanged(AWeaponBase* NewWeapon);
 	
 	//サーバーのみ使用
 	double NextUtilityUseTime = 0.0f;
 	
 	// サーバー専用：ユーティリティスロットの中身を取り出す（死体から回収する時に使う）
 	bool Internal_RemoveUtilitySlot(int32 SlotIndex, FUtilitySlotEntry& OutEntry);
+	
+	
 public:
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType,

@@ -9,6 +9,7 @@
 #include "GAS/Enum/EquipmentType.h"
 #include "EquipmentDataAsset.generated.h"
 
+class AWeaponBase;
 /**
  * 装備のデータアセット
  */
@@ -95,4 +96,8 @@ public:
 	//使用後、次に使えるまでの秒数
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item|Use", meta=(ClampMin = "0.0"))
 	float UseCooldown = 1.0f;
+	
+	// 手に持った時に出す見た目・ABP・モンタージュ（AWeaponBase の子BP。IsHeldItem にチェック）
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item|Use")
+	TSubclassOf<AWeaponBase> HeldItemClass;
 };
