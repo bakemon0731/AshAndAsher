@@ -15,8 +15,8 @@ struct FSMovementProperties
 {
 	GENERATED_BODY()
 	// --- 変数 ---
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-	float MaxWalkSpeed = 0.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement",meta=(ClampMin = "0.0"))
+	float MoveSpeedPenalty = 0.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	bool OrientRotationToMovement = false;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")

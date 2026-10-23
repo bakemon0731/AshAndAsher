@@ -7,6 +7,8 @@
 #include "Net/UnrealNetwork.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Animation/AnimInstance.h"
+#include "AbilitySystemComponent.h"
+#include "AbilitySystemGlobals.h"
 
 
 UAC_WeaponComponent::UAC_WeaponComponent()
@@ -52,8 +54,14 @@ void UAC_WeaponComponent::BeginPlay()
 	}
 }
 
-void UAC_WeaponComponent::OnRep_EquippedWeapon()
+void UAC_WeaponComponent::OnRep_EquippedWeapon(AWeaponBase* OldWeapon)
 {
+	// 別の物へ直接持ち替えた場合、仕舞うモンタージュは再生されないので、ここで直接仕舞う
+	if (IsValid(EquippedWeapon) && IsValid(OldWeapon) && OldWeapon != EquippedWeapon)
+	{
+		StowWeaponImmediately(OldWeapon);
+	}
+	
 	// サーバーの武器の見た目をクライアントに反映させる処理
 	if (IsValid(EquippedWeapon))
 	{
@@ -129,8 +137,10 @@ void UAC_WeaponComponent::EquipWeapon(TSubclassOf<AWeaponBase> WeaponClass)
 		}
 		else
 		{
-			// 等しくない場合はUnequipを実行
+			// 等しくない場合は、今の物を外して、直接背中へ戻す
+			AWeaponBase* Old = EquippedWeapon;
 			UnequipWeapon();
+			StowWeaponImmediately(Old);
 		}
 	}
 	
@@ -191,6 +201,9 @@ void UAC_WeaponComponent::SetEquippedWeaponProperties()
 		return;
 	}
 	
+	//武器の移動速度ペナルティGEを適用
+	RefreshWieldPenalty();
+	
 	// 武器の親アクターから継承した構造体を取り出す (Break SWeaponConfig)
 	FSWeaponConfig WeaponConfig=EquippedWeapon->WeaponConfig;
 	
@@ -207,13 +220,12 @@ void UAC_WeaponComponent::SetEquippedWeaponProperties()
 		CharacterMesh->SetAnimInstanceClass(WeaponConfig.AnimClass);
 	}
 	
-	// 移動速度/カメラを設定 (Break SMovementProperties)
+	// カメラを設定 (Break SMovementProperties)
 	UCharacterMovementComponent* MovementComp = OwningCharacter->GetCharacterMovement();
 	if (IsValid(MovementComp) && !EquippedWeapon->IsHeldItem)
 	{
 		FSMovementProperties MoveProps = WeaponConfig.MovementProperties;
 		
-		MovementComp->MaxWalkSpeed = MoveProps.MaxWalkSpeed;
 		MovementComp->bOrientRotationToMovement = MoveProps.OrientRotationToMovement;
 		MovementComp->bUseControllerDesiredRotation = MoveProps.UseControllerDesiredRotation;
 	}
@@ -234,6 +246,8 @@ void UAC_WeaponComponent::SetUnarmedWeaponConfig()
 	{
 		return;
 	}
+	
+	RefreshWieldPenalty();
 	
 	USkeletalMeshComponent* CharacterMesh = OwningCharacter->GetMesh();
 	
@@ -265,7 +279,6 @@ void UAC_WeaponComponent::SetUnarmedProperties()
 	{
 		FSMovementProperties MoveProps = WeaponConfig.MovementProperties;
 		
-		MovementComp->MaxWalkSpeed = MoveProps.MaxWalkSpeed;
 		MovementComp->bOrientRotationToMovement = MoveProps.OrientRotationToMovement;
 		MovementComp->bUseControllerDesiredRotation = MoveProps.UseControllerDesiredRotation;
 	}
@@ -274,6 +287,67 @@ void UAC_WeaponComponent::SetUnarmedProperties()
 	OnWeaponChanged.Broadcast(nullptr);
 	
 	IsWieldingWeapon = false;
+}
+
+void UAC_WeaponComponent::StowWeaponImmediately(AWeaponBase* Weapon)
+{
+	if (!IsValid(Weapon) || !IsValid(OwningCharacter))
+	{
+		return;
+	}
+	
+	// 消耗品は仕舞わずに消す。クライアントは見えなくするだけで、実体の破棄はサーバーに任せる
+	if (Weapon->IsHeldItem)
+	{
+		// 寿命が未設定の場合だけ設定する（サーバーのみ）
+		if (Weapon->HasAuthority() && Weapon->GetLifeSpan() <= 0.f)
+		{
+			Weapon->SetLifeSpan(Weapon->HeldItemDestroyDelay);
+		}
+		return;
+	}
+	
+	if (USkeletalMeshComponent* CharacterMesh = OwningCharacter->GetMesh())
+	{
+		Weapon->AttachToComponent(CharacterMesh,FAttachmentTransformRules::SnapToTargetIncludingScale,
+			Weapon->WeaponConfig.StowedSocketName);
+	}
+}
+
+void UAC_WeaponComponent::RefreshWieldPenalty()
+{
+	if (!GetOwner() || !GetOwner()->HasAuthority())
+	{
+		return;
+	}
+	
+	UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(GetOwner());
+	if (!ASC)
+	{
+		return;
+	}
+	
+	//前のペナルティを外す
+	if (WieldPenaltyHandle.IsValid())
+	{
+		ASC->RemoveActiveGameplayEffect(WieldPenaltyHandle);
+		WieldPenaltyHandle.Invalidate();
+	}
+	
+	const float Penalty = IsValid(EquippedWeapon) ? EquippedWeapon->WeaponConfig.MovementProperties.MoveSpeedPenalty : 0.0f;
+	if (Penalty <= 0.0f ||!WieldMoveSpeedPenaltyEffect)
+	{
+		return;
+	}
+	
+	FGameplayEffectContextHandle Context = ASC->MakeEffectContext();
+	FGameplayEffectSpecHandle Spec = ASC->MakeOutgoingSpec(WieldMoveSpeedPenaltyEffect, 1.f, Context);
+	//GameplayEffectを適用
+	if (Spec.IsValid())
+	{
+		Spec.Data->SetSetByCallerMagnitude(FGameplayTag::RequestGameplayTag(FName("Data.WeightPenalty")), -Penalty);
+		WieldPenaltyHandle = ASC->ApplyGameplayEffectSpecToSelf(*Spec.Data.Get());
+	}
 }
 
 
@@ -291,13 +365,21 @@ void UAC_WeaponComponent::EquipHeldItem(TSubclassOf<AWeaponBase> HeldClass)
 	{
 		return;
 	}
-	
+    
 	// 既に同じ物を持っているなら何もしない
 	if (IsValid(EquippedWeapon) && EquippedWeapon->GetClass() == HeldClass)
 	{
 		return;
 	}
-	
+    
+	//既に別の武器を持っている場合は、安全に仕舞う処理を入れる
+	if (IsValid(EquippedWeapon))
+	{
+		AWeaponBase* Old = EquippedWeapon;
+		UnequipWeapon();
+		StowWeaponImmediately(Old);
+	}
+    
 	// 持つ前の武器を覚える（別の消耗品から持ち替える時は、最初の記録を引き継ぐ）
 	if (!IsValid(EquippedWeapon))
 	{
@@ -307,25 +389,25 @@ void UAC_WeaponComponent::EquipHeldItem(TSubclassOf<AWeaponBase> HeldClass)
 	{
 		WeaponBeforeHeld = EquippedWeapon->GetClass();
 	}
-	
-	//スポーンパラメーターの設定
+    
+	// スポーンパラメーターの設定
 	FActorSpawnParameters SpawnParameters;
 	SpawnParameters.Instigator = OwningCharacter;
 	SpawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-	
-	AWeaponBase* Held = World->SpawnActor<AWeaponBase>(HeldClass,FVector::ZeroVector,FRotator::ZeroRotator,SpawnParameters);
+    
+	AWeaponBase* Held = World->SpawnActor<AWeaponBase>(HeldClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParameters);
 	if (!Held)
 	{
 		return;
 	}
-	
+    
 	// 常設の武器と違い、StowedWeaponsには入れない。（生成直後に手のソケットへ付けて、原点に出るのを防ぐため）
 	if (USkeletalMeshComponent* CharacterMesh = OwningCharacter->GetMesh())
 	{
-		Held->AttachToComponent(CharacterMesh,FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-			Held->WeaponConfig.EquippedSocketName);
+		Held->AttachToComponent(CharacterMesh, FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+		   Held->WeaponConfig.EquippedSocketName);
 	}
-	
+    
 	EquippedWeapon = Held;
 	SetEquippedWeaponProperties();
 }
