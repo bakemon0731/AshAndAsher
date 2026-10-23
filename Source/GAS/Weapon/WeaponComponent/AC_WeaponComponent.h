@@ -54,6 +54,10 @@ public:
 	//手に持っている消耗品を仕舞い、持つ前の武器または素手に戻る。サーバー専用
 	void ReturnFromHeldItem();
 	
+	//武器を持ている間だけMoveSpeedを下げるGEを適用する。（SetByCaller の Data.WeightPenalty を使う）
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
+	TSubclassOf<UGameplayEffect> WieldMoveSpeedPenaltyEffect;
+	
 protected:
 	UPROPERTY(BlueprintReadOnly,Category= "Weapon")
 	ANexusCharacterBase* OwningCharacter;
@@ -77,13 +81,14 @@ protected:
 	UPROPERTY(BlueprintReadOnly,Category= "Weapon")
 	TSubclassOf<AWeaponBase> WeaponBeforeHeld;
 	
+	FActiveGameplayEffectHandle WieldPenaltyHandle;
 protected:
 
 	virtual void BeginPlay() override;
 	
 	// EquippedWeaponがレプリケートされた時に呼ばれる関数
 	UFUNCTION()
-	void OnRep_EquippedWeapon();
+	void OnRep_EquippedWeapon(AWeaponBase* OldWeapon);
 
 	// 武器を付与する関数
 	UFUNCTION(BlueprintCallable, Category= "Weapon")
@@ -109,8 +114,13 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent,Category="Weapon")
 	void PlayUnequipMontage(FSWeaponConfig WeaponConfig);
 	
-	//移動速度/カメラ設定をUnarmedに戻す関数
+	//カメラ設定をUnarmedに戻す関数
 	UFUNCTION(BlueprintCallable,Category= "Weapon")
 	void SetUnarmedProperties();
 	
+	//武器を背中に戻す関数。Montageには頼らない。
+	void StowWeaponImmediately(AWeaponBase* Weapon);
+	
+	// 今持っている物に合わせて、ペナルティを付け替える（サーバーのみ）
+	void RefreshWieldPenalty();
 };
