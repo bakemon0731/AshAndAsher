@@ -9,6 +9,7 @@
 #include "Animation/AnimInstance.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemGlobals.h"
+#include "GAS/EquipmentSystem/DataAsset/EquipmentDataAsset.h"
 
 
 UAC_WeaponComponent::UAC_WeaponComponent()
@@ -334,7 +335,21 @@ void UAC_WeaponComponent::RefreshWieldPenalty()
 		WieldPenaltyHandle.Invalidate();
 	}
 	
-	const float Penalty = IsValid(EquippedWeapon) ? EquippedWeapon->WeaponConfig.MovementProperties.MoveSpeedPenalty : 0.0f;
+	float Penalty = 0.0f;
+	if (IsValid(EquippedWeapon))
+	{
+		if (EquippedWeapon->ItemData)
+		{
+			Penalty = EquippedWeapon->ItemData->MoveSpeedPenalty;
+		}
+		else if (!EquippedWeapon->IsHeldItem)
+		{
+			// 武器にItemDataを設定し忘れた用
+			UE_LOG(LogTemp, Warning, TEXT("%s に ItemData が設定されていないため、移動速度ペナルティが掛かりません"), 
+				*GetNameSafe(EquippedWeapon));
+		}
+	}
+	
 	if (Penalty <= 0.0f ||!WieldMoveSpeedPenaltyEffect)
 	{
 		return;
