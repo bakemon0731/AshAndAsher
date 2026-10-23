@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "GameplayEffectTypes.h"// GASのFGameplayEffectSpecHandleを使うため
+#include "GameplayEffectTypes.h"
 #include "Animation/AnimInstance.h"
 #include "CoreMinimal.h"
 #include "GameplayEffect.h"
@@ -15,8 +15,6 @@ struct FSMovementProperties
 {
 	GENERATED_BODY()
 	// --- 変数 ---
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement",meta=(ClampMin = "0.0"))
-	float MoveSpeedPenalty = 0.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	bool OrientRotationToMovement = false;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
@@ -74,6 +72,7 @@ struct FSWeaponConfig
 // 前方宣言（ヘッダーのインクルードを減らすため）
 class USceneComponent;
 class UStaticMeshComponent;
+class UEquipmentDataAsset;
 
 // このクラスをBPで継承・型指定できるように設定
 UCLASS(Blueprintable, BlueprintType)
@@ -84,7 +83,57 @@ class GAS_API AWeaponBase : public AActor
 public:	
 	// Sets default values for this actor's properties
 	AWeaponBase();
+	
+	// この武器の元になっているアイテムデータ。移動速度ペナルティなどは、ここから読む
+	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="Item")
+	TObjectPtr<UEquipmentDataAsset> ItemData;
 
+public:	
+	// Called every frame
+	virtual void Tick(float DeltaTime) override;
+	
+	// HitScanカスタムイベント
+	UFUNCTION(BlueprintCallable, Category = "HitScanTrace")
+	void HitScan();
+	
+	// トレース開始イベント
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	void HitScanStart(const FGameplayEffectSpecHandle InEffectSpecHandle);
+	
+	// トレース終了イベント
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	void HitScanEnd();
+	
+	//何か（発射物）を出す時の位置
+	// 値を返すだけなので、状態を変更しない const を付ける
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	FVector GetSpawnPointLocation() const;
+	
+	
+	// 武器コンポーネントやブループリントから参照・設定できるようにする変数
+	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category = "WeaponConfig")
+	FSWeaponConfig WeaponConfig;
+	
+	// 色を変更するための関数
+	UFUNCTION(BlueprintCallable,Category = "Weapon|Material")
+	void ChangeWeaponColor(FLinearColor NewColor);
+	
+	//武器の強度を調整する関数
+	UFUNCTION(BlueprintCallable,Category = "Weapon|Material")
+	void ChangeWeaponIntensity (float NewIntensity);
+	
+	// Panner（パナー）を調整する関数
+	UFUNCTION(BlueprintCallable,Category = "Weapon|Material")
+	void ChangeWeaponPanner (float NewPanner);
+
+	// 手に持つ消耗品（ポーション等）として使う時にチェック。
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="HeldItem")
+	bool IsHeldItem = false;
+	
+	// 仕舞う動作の後、この秒数で消える（仕舞うモンタージュより少し長くする）
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="HeldItem",meta=(ClampMin = "0.1"))
+	float HeldItemDestroyDelay = 0.8f;
+	
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -128,52 +177,4 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Material")
 	UMaterialInstanceDynamic* WeaponMID;
 	
-	// --- 関数 ---
-	// HitScanカスタムイベント
-	UFUNCTION(BlueprintCallable, Category = "HitScanTrace")
-	void HitScan();
-
-public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
-	
-	
-	// トレース開始イベント
-	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	void HitScanStart(const FGameplayEffectSpecHandle InEffectSpecHandle);
-	
-	
-	// トレース終了イベント
-	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	void HitScanEnd();
-	
-	//何か（発射物）を出す時の位置
-	// 値を返すだけなので、状態を変更しない const を付ける
-	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	FVector GetSpawnPointLocation() const;
-	
-	
-	// 武器コンポーネントやブループリントから参照・設定できるようにする変数
-	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category = "WeaponConfig")
-	FSWeaponConfig WeaponConfig;
-	
-	// 色を変更するための関数
-	UFUNCTION(BlueprintCallable,Category = "Weapon|Material")
-	void ChangeWeaponColor(FLinearColor NewColor);
-	
-	//武器の強度を調整する関数
-	UFUNCTION(BlueprintCallable,Category = "Weapon|Material")
-	void ChangeWeaponIntensity (float NewIntensity);
-	
-	// Panner（パナー）を調整する関数
-	UFUNCTION(BlueprintCallable,Category = "Weapon|Material")
-	void ChangeWeaponPanner (float NewPanner);
-
-	// 手に持つ消耗品（ポーション等）として使う時にチェック。
-	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="HeldItem")
-	bool IsHeldItem = false;
-	
-	// 仕舞う動作の後、この秒数で消える（仕舞うモンタージュより少し長くする）
-	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="HeldItem",meta=(ClampMin = "0.1"))
-	float HeldItemDestroyDelay = 0.8f;
 };
