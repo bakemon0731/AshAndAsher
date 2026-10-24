@@ -5,6 +5,7 @@
 #include "Abilities/GameplayAbility.h"
 #include "GAS/Weapon/WeaponComponent/AC_WeaponComponent.h"
 #include "GAS/Weapon/WeaponBase/WeaponBase.h"
+#include "GAS/EquipmentSystem/EquipmentComponent/AC_EquipmentComponent.h"
 
 void UGA_EquipWeaponBase::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 	const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo,
@@ -25,32 +26,13 @@ void UGA_EquipWeaponBase::ActivateAbility(const FGameplayAbilitySpecHandle Handl
 	{
 		AActor* AvatarActor = ActorInfo->AvatarActor.Get();
 		
-		//アクターからUAC_WeaponComponentを取得。
-		UAC_WeaponComponent* WeaponManager = AvatarActor->FindComponentByClass<UAC_WeaponComponent>();
+		// イベントの Event Magnitude から、武器スロット番号を取得する（0=左・1キー、1=右・2キー）
+		const int32 SlotIndex = FMath::RoundToInt(TriggerEventData->EventMagnitude);
 		
-		// コンポーネントが存在するか確認
-		if (WeaponManager)
+		if (UAC_EquipmentComponent* EquipComp = AvatarActor->FindComponentByClass<UAC_EquipmentComponent>())
 		{
-			// トリガーされたイベントデータの TargetTags から武器タグを取得する
-			FGameplayTag WeaponTag;
-			if (TriggerEventData && !TriggerEventData->TargetTags.IsEmpty())
-			{
-				// Payloadの Target Tags に設定された最初のタグ(index0)を取得
-				WeaponTag = TriggerEventData->TargetTags.GetByIndex(0);
-			}
-			
-			// Map変数から対応する武器クラスを検索
-			if (const TSubclassOf<AWeaponBase>* FoundWeaponClassPtr = WeaponClassMap.Find(WeaponTag))
-			{
-				// キーが存在し、かつ登録されている武器クラスが valid (Noneではない) かチェック
-				if (FoundWeaponClassPtr && *FoundWeaponClassPtr)
-				{
-					TSubclassOf<AWeaponBase> WeaponClassToEquip = *FoundWeaponClassPtr;
-					
-					// 装備処理を実行
-					WeaponManager->EquipWeapon(WeaponClassToEquip);
-				}
-			}
+			// スロットの武器を持つ／もう一度で仕舞う。サーバーでのみ動く（EquipWeaponと同じ扱い）
+			EquipComp->ToggleWeaponSlot(SlotIndex);
 		}
 	}
 	// アビリティを終了

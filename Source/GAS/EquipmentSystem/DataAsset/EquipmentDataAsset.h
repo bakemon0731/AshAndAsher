@@ -14,22 +14,6 @@ class AWeaponBase;
  * 装備のデータアセット
  */
 
-// ブループリントで使用可能にするためのマクロ
-UENUM(BlueprintType)
-enum class EEquipmentSlot : uint8
-{
-	Head        UMETA(DisplayName = "頭"),
-	Chest       UMETA(DisplayName = "胴体"),
-	Hands       UMETA(DisplayName = "手"),
-	Legs        UMETA(DisplayName = "脚"),
-	Feet        UMETA(DisplayName = "足"),
-	Cloak       UMETA(DisplayName = "マント"),
-	Ring        UMETA(DisplayName = "指輪"),
-	Pendant		UMETA(DisplayName = "ネックレス"),
-	Utility     UMETA(DisplayName = "ユーティリティ"),
-	None        UMETA(DisplayName = "None")
-};
-
 UCLASS(BlueprintType)
 class GAS_API UEquipmentDataAsset : public UPrimaryDataAsset
 {
@@ -37,7 +21,7 @@ class GAS_API UEquipmentDataAsset : public UPrimaryDataAsset
 	
 public:
 	
-	//どの部位の装備か。
+	//どのスロットの装備か。
 	UPROPERTY(EditAnywhere,BlueprintReadOnly, Category = "Equipment")
 	EEquipmentSlot Slot = EEquipmentSlot::None;
 	
@@ -88,6 +72,10 @@ public:
 	//このアイテムの種類
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")
 	EItemCategory Category = EItemCategory::Equipment;
+	
+	// ポップアップに出す種別の文字。消耗品=ユーティリティ、素材=素材、それ以外は装備部位の名前
+	UFUNCTION(BlueprintPure, Category = "Item")
+	FText GetItemTypeText() const;
 	
 	//このアイテムを使用した時に自分へ適用するGE（回復など）
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item|Use")
