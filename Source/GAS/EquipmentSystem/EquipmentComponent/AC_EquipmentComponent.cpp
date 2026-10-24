@@ -17,6 +17,9 @@ UAC_EquipmentComponent::UAC_EquipmentComponent()
 	SetIsReplicatedByDefault(true);
 	
 	UtilitySlots.SetNum(NumUtilitySlots);
+	
+	WeaponSlots.SetNum(NumWeaponSlots);
+	WeaponSlotActors.SetNum(NumWeaponSlots);
 }
 
 void UAC_EquipmentComponent::BeginPlay()
@@ -67,6 +70,7 @@ void UAC_EquipmentComponent::GetLifetimeReplicatedProps(TArray<class FLifetimePr
 	DOREPLIFETIME(UAC_EquipmentComponent, EquippedSlotsReplicated);
 	DOREPLIFETIME(UAC_EquipmentComponent, UtilitySlots);
 	DOREPLIFETIME(UAC_EquipmentComponent, ActiveUtilitySlot);
+	DOREPLIFETIME(UAC_EquipmentComponent, WeaponSlots);
 }
 
 void UAC_EquipmentComponent::RebuildEquippedSlotsReplicated()
@@ -1114,3 +1118,141 @@ void UAC_EquipmentComponent::Server_SwapUtilitySlots_Implementation(int32 SlotA,
 	OnRep_UtilitySlots();
 }
 
+// ===================== 武器スロット =====================
+
+void UAC_EquipmentComponent::OnRep_WeaponSlots()
+{
+	OnWeaponSlitsChanged.Broadcast();
+}
+
+UEquipmentDataAsset* UAC_EquipmentComponent::GetWeaponSlotItem(int32 SlotIndex) const
+{
+	return WeaponSlots.IsValidIndex(SlotIndex) ? WeaponSlots[SlotIndex].Get() : nullptr;
+}
+
+bool UAC_EquipmentComponent::CanSetWeaponItem(UEquipmentDataAsset* Item) const
+{
+	return Item && Item->Slot == EEquipmentSlot::Weapon && Item->HeldItemClass;
+}
+
+void UAC_EquipmentComponent::SpawnWeaponSlotActor(int32 SlotIndex)
+{
+	UAC_WeaponComponent* WeaponComp = GetOwner() ? GetOwner()->FindComponentByClass<UAC_WeaponComponent>(): nullptr;
+	if (WeaponComp && WeaponSlots.IsValidIndex(SlotIndex) && WeaponSlots[SlotIndex])
+	{
+		//アイテムから武器Actorを生成して背中に取り付ける。
+		WeaponSlotActors[SlotIndex] = WeaponComp->GiveWeaponForItem(WeaponSlots[SlotIndex]);
+	}
+}
+
+void UAC_EquipmentComponent::ClearWeaponSlotActor(int32 SlotIndex)
+{
+	if (!WeaponSlotActors.IsValidIndex(SlotIndex))
+	{
+		return;
+	}
+	
+	if (AWeaponBase* Weapon = WeaponSlotActors[SlotIndex])
+	{
+		if (UAC_WeaponComponent* WeaponComp = GetOwner()->FindComponentByClass<UAC_WeaponComponent>())
+		{
+			//武器Actorを仕舞う。
+			WeaponComp->RemoveWeaponActor(Weapon);
+		}
+	}
+	WeaponSlotActors[SlotIndex] = nullptr;
+}
+
+void UAC_EquipmentComponent::RequestEquipWeaponToSlot(FGuid InstanceID, int32 SlotIndex)
+{
+	Server_EquipWeaponToSlot(InstanceID, SlotIndex);
+}
+
+void UAC_EquipmentComponent::Server_EquipWeaponToSlot_Implementation(FGuid InstanceID, int32 SlotIndex)
+{
+	if (!WeaponSlots.IsValidIndex(SlotIndex))
+	{
+		return;
+	}
+	
+	const int32 SrcIdx = InventoryItemsInstance.IndexOfByPredicate(
+		[&](const FInventoryItemInstance& I) {return I.InstanceID == InstanceID;});
+	if (SrcIdx == INDEX_NONE)
+	{
+		return;
+	}
+	
+	UEquipmentDataAsset* Item = InventoryItemsInstance[SrcIdx].Item;
+	if (!CanSetWeaponItem(Item))
+	{
+		return;
+	}
+	
+	// 失敗時に戻す用
+	const TArray<FInventoryItemInstance> Backup = InventoryItemsInstance;
+	InventoryItemsInstance.RemoveAt(SrcIdx);
+	
+	// 既に武器が入っていれば、先にインベントリへ戻す（入らなければ全部取り消す）
+	if (UEquipmentDataAsset* Old = WeaponSlots[SlotIndex])
+	{
+		if (!AddItemToInventory(Old,1))
+		{
+			InventoryItemsInstance = Backup;
+			return;
+		}
+		ClearWeaponSlotActor(SlotIndex);
+	}
+	
+	WeaponSlots[SlotIndex] = Item;
+	SpawnWeaponSlotActor(SlotIndex);
+	
+	OnRep_Inventory();
+	OnRep_WeaponSlots();
+}
+
+void UAC_EquipmentComponent::RequestUnequipWeaponSlot(int32 SlotIndex)
+{
+	Server_UnequipWeaponSlot(SlotIndex);
+}
+
+void UAC_EquipmentComponent::Server_UnequipWeaponSlot_Implementation(int32 SlotIndex)
+{
+	if (!WeaponSlots.IsValidIndex(SlotIndex) || !WeaponSlots[SlotIndex])
+	{
+		return;
+	}
+	if (!AddItemToInventory(WeaponSlots[SlotIndex],1))
+	{
+		// インベントリに空きが無ければ、外せない
+		return;
+	}
+	ClearWeaponSlotActor(SlotIndex);
+	WeaponSlots[SlotIndex] = nullptr;
+	OnRep_WeaponSlots();
+}
+
+void UAC_EquipmentComponent::ToggleWeaponSlot(int32 SlotIndex)
+{
+	if (!GetOwner() || !GetOwner()->HasAuthority())
+	{
+		return;
+	}
+	
+	if (!WeaponSlotActors.IsValidIndex(SlotIndex) || !IsValid(WeaponSlotActors[SlotIndex]))
+	{
+		// その武器スロットが空
+		return;
+	}
+	
+	const ANexusCharacterBase* OwnerChar = Cast<ANexusCharacterBase>(GetOwner());
+	if (OwnerChar && OwnerChar->IsCorpse())
+	{
+		return;
+	}
+	
+	if (UAC_WeaponComponent* WeaponComp = GetOwner()->FindComponentByClass<UAC_WeaponComponent>())
+	{
+		//その武器を持つ。既に持っていれば仕舞う。別のものを持っていれば持ち替える。
+		WeaponComp->ToggleWeaponInstance(WeaponSlotActors[SlotIndex]);
+	}
+}

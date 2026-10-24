@@ -10,6 +10,7 @@
 
 /**
  * GA_EquipWeaponをC++に移植
+ * イベントのEventMagnitudeからスロット番号を取り、ToggleWeaponSlotを呼ぶ
  */
 
 class UAC_WeaponComponent;
@@ -19,11 +20,6 @@ UCLASS()
 class GAS_API UGA_EquipWeaponBase : public UNexusGameplayAbility
 {
 	GENERATED_BODY()
-	
-public:
-	// タグと武器クラスの紐づけマップ変数
-	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Weapon")
-	TMap<FGameplayTag,TSubclassOf<AWeaponBase>> WeaponClassMap;
 	
 protected:
 	//EventActivateAbilityFromEventをオーバーライド。

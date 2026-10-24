@@ -12,10 +12,13 @@
  * 装備品とインベントリを管理し、GASと連携するコンポーネント
  */
 
+//前方宣言
 class AWeaponBase;
+
 //イベントディスパッチャーの宣言
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnEquipmentChanged);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnUtilityChanged);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnWeaponSlitsChanged);
 
 // 装備中のアイテムとそのアイテムによって付与されたエフェクトを管理する構造体
 USTRUCT(BlueprintType)
@@ -131,6 +134,17 @@ public:
 	//イベントディスパッチの定義(FOnUtilityChanged)の変数
 	UPROPERTY(BlueprintAssignable, Category="Utility")
 	FOnUtilityChanged OnUtilityChanged;
+	
+	// 0=左(1キー)、1=右(2キー)
+	static constexpr int32 NumWeaponSlots = 2;
+	
+	//0 = 左グループ(1キー)、1 = 右グループ(2キー)
+	UPROPERTY(ReplicatedUsing=OnRep_WeaponSlots,BlueprintReadOnly,Category="Weapon")
+	TArray<TObjectPtr<UEquipmentDataAsset>> WeaponSlots;
+	
+	//イベントディスパッチの定義FOnWeaponSlitsChanged)の変数
+	UPROPERTY(BlueprintAssignable,Category="Weapon")
+	FOnWeaponSlitsChanged OnWeaponSlitsChanged;
 	
 public:
 	
@@ -270,6 +284,30 @@ public:
 	UFUNCTION(Server, Reliable)
 	void Server_SwapUtilitySlots(int32 SlotA, int32 SlotB);
 	
+	// ===================== 武器スロット =====================
+	UFUNCTION(BlueprintPure,Category="Weapon")
+	UEquipmentDataAsset* GetWeaponSlotItem(int32 SlotIndex) const;
+	
+	// 武器スロットに入れられるアイテムか（UIのドロップ判定にも使う）
+	UFUNCTION(BlueprintPure,Category="Weapon")
+	bool CanSetWeaponItem(UEquipmentDataAsset* Item) const;
+	
+	// インベントリの武器を、指定の武器スロットへ入れる
+	UFUNCTION(BlueprintCallable,Category="Weapon")
+	void RequestEquipWeaponToSlot(FGuid InstanceID,int32 SlotIndex);
+	UFUNCTION(Server,Reliable)
+	void Server_EquipWeaponToSlot(FGuid InstanceID,int32 SlotIndex);
+	
+	// 武器スロットの武器を、インベントリへ戻す
+	UFUNCTION(BlueprintCallable,Category="Weapon")
+	void RequestUnequipWeaponSlot(int32 SlotIndex);
+	UFUNCTION(Server,Reliable)
+	void Server_UnequipWeaponSlot(int32 SlotIndex);
+	
+	// 1キー・2キー：スロットの武器を持つ／仕舞う。サーバーでのみ動く（GAから呼ぶ。EquipWeaponと同じ扱い）
+	UFUNCTION(BlueprintCallable,Category="Weapon")
+	void ToggleWeaponSlot(int32 SlotIndex);
+	
 protected:
 
 	// 登録されたAbility System Componentのキャッシュ
@@ -279,6 +317,8 @@ protected:
 	UPROPERTY()
 	TMap<EEquipmentSlot,FEquippedItemEntry> EquippedItems;
 
+	// サーバーのみ：各武器スロットに対応する、ワールド上の武器Actor
+	TArray<TObjectPtr<AWeaponBase>> WeaponSlotActors;
 	
 protected:
 	// Called when the game starts
@@ -333,6 +373,12 @@ protected:
 	// サーバー専用：ユーティリティスロットの中身を取り出す（死体から回収する時に使う）
 	bool Internal_RemoveUtilitySlot(int32 SlotIndex, FUtilitySlotEntry& OutEntry);
 	
+	UFUNCTION()
+	void OnRep_WeaponSlots();
+	
+	void SpawnWeaponSlotActor(int32 SlotIndex);
+	
+	void ClearWeaponSlotActor(int32 SlotIndex);
 	
 public:
 	// Called every frame

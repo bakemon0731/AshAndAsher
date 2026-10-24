@@ -365,6 +365,86 @@ void UAC_WeaponComponent::RefreshWieldPenalty()
 	}
 }
 
+AWeaponBase* UAC_WeaponComponent::GiveWeaponForItem(UEquipmentDataAsset* Item)
+{
+	UWorld* World = GetWorld();
+	if (!GetOwner()->HasAuthority() || !IsValid(OwningCharacter) || !Item || !Item->HeldItemClass || !World)
+	{
+		return nullptr;
+	}
+	
+	//スポーンパラメータの設定。
+	FActorSpawnParameters SpawnParameters;
+	SpawnParameters.Instigator = OwningCharacter;
+	SpawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	AWeaponBase* Weapon = World->SpawnActor<AWeaponBase>(Item->HeldItemClass,FVector::ZeroVector,FRotator::ZeroRotator,SpawnParameters);
+	if (!Weapon)
+	{
+		return nullptr;
+	}
+	
+	// 移動速度ペナルティなどは、ここから読む
+	Weapon->ItemData = Item;
+	StowedWeapons.AddUnique(Weapon);
+	
+	//所有者アクタに武器をアタッチ。
+	if (USkeletalMeshComponent* CharacterMesh = OwningCharacter->GetMesh())
+	{
+		Weapon->AttachToComponent(CharacterMesh,FAttachmentTransformRules::KeepRelativeTransform,
+			Weapon->WeaponConfig.StowedSocketName);
+	}
+	return Weapon;
+}
+
+void UAC_WeaponComponent::RemoveWeaponActor(AWeaponBase* Weapon)
+{
+	if (!GetOwner()->HasAuthority() || !IsValid(Weapon))
+	{
+		return;
+	}
+	
+	//武器を装備していたら装備解除関数を呼ぶ
+	if (EquippedWeapon == Weapon)
+	{
+		UnequipWeapon();
+	}
+	
+	StowedWeapons.Remove(Weapon);
+	
+	// 仕舞うモンタージュが PreviouslyEquippedWeapon を参照するので、すぐには破棄しない
+	Weapon->SetActorHiddenInGame(true);
+	Weapon->SetLifeSpan(2.0f);
+}
+
+void UAC_WeaponComponent::ToggleWeaponInstance(AWeaponBase* Weapon)
+{
+	if (!GetOwner()->HasAuthority() || !IsValid(OwningCharacter) || !IsValid(Weapon))
+	{
+		return;
+	}
+	
+	// 武器を持つ操作なので、ポーションの前に持っていた物の記録は不要
+	WeaponBeforeHeld = nullptr;
+	
+	// 同じ武器を持っているなら、仕舞う
+	if (EquippedWeapon == Weapon)
+	{
+		UnequipWeapon();
+		return;
+	}
+	
+	// 別の物（武器やポーション）を持っているなら、その場で背中へ戻してから持ち替える
+	if (IsValid(EquippedWeapon))
+	{
+		AWeaponBase* Old = EquippedWeapon;
+		UnequipWeapon();
+		StowWeaponImmediately(Old);
+	}
+	
+	EquippedWeapon = Weapon;
+	SetEquippedWeaponProperties();
+}
 
 void UAC_WeaponComponent::TickComponent(float DeltaTime, ELevelTick TickType,
                                         FActorComponentTickFunction* ThisTickFunction)

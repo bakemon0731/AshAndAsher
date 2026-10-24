@@ -13,6 +13,9 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnWeaponChanged,AWeaponBase*,Equipp
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnWeaponUnequipped);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnWeaponEquipped);
 
+//前方宣言
+class UEquipmentDataAsset;
+
 UCLASS(Blueprintable,ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class GAS_API UAC_WeaponComponent : public UActorComponent
 {
@@ -35,6 +38,10 @@ public:
 	UPROPERTY(BlueprintReadWrite,ReplicatedUsing = OnRep_EquippedWeapon,Category= "Weapon")
 	AWeaponBase* EquippedWeapon;
 	
+	//武器を持ている間だけMoveSpeedを下げるGEを適用する。（SetByCaller の Data.WeightPenalty を使う）
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
+	TSubclassOf<UGameplayEffect> WieldMoveSpeedPenaltyEffect;
+	
 public:
 
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
@@ -54,9 +61,14 @@ public:
 	//手に持っている消耗品を仕舞い、持つ前の武器または素手に戻る。サーバー専用
 	void ReturnFromHeldItem();
 	
-	//武器を持ている間だけMoveSpeedを下げるGEを適用する。（SetByCaller の Data.WeightPenalty を使う）
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
-	TSubclassOf<UGameplayEffect> WieldMoveSpeedPenaltyEffect;
+	//アイテムから武器Actorを生成して背中に取り付ける。サーバー専用。
+	AWeaponBase* GiveWeaponForItem(UEquipmentDataAsset* Item);
+	
+	//武器Actorを仕舞う。サーバー専用。
+	void RemoveWeaponActor(AWeaponBase* Weapon);
+	
+	//その武器を持つ。既に持っていれば仕舞う。別のものを持っていれば持ち替える。
+	void ToggleWeaponInstance(AWeaponBase* Weapon);
 	
 protected:
 	UPROPERTY(BlueprintReadOnly,Category= "Weapon")
@@ -121,6 +133,7 @@ protected:
 	//武器を背中に戻す関数。Montageには頼らない。
 	void StowWeaponImmediately(AWeaponBase* Weapon);
 	
-	// 今持っている物に合わせて、ペナルティを付け替える（サーバーのみ）
+	// 今持っている物に合わせて、ペナルティを付け替える。サーバー専用。
 	void RefreshWieldPenalty();
+	
 };
