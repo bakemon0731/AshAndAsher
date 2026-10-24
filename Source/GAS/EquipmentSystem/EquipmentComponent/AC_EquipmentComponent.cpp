@@ -981,13 +981,20 @@ void UAC_EquipmentComponent::Server_UseActiveUtility_Implementation()
 {
 	if (!UtilitySlots.IsValidIndex(ActiveUtilitySlot) || !CachedASC)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("Server_UseActiveUtility: UtilitySlot is invalid or CachedASC is nullptr"));
 		return;
 	}
-	
-	const ANexusCharacterBase* OwnerChar = Cast<ANexusCharacterBase>(GetOwner());
-	if (OwnerChar && OwnerChar -> IsCorpse())
+
+	// 【追加】AvatarActorが設定されているか確認
+	if (!CachedASC->GetAvatarActor())
 	{
-		// 死んでいる間は使えない
+		UE_LOG(LogTemp, Error, TEXT("Server_UseActiveUtility: CachedASC->GetAvatarActor() is nullptr! (ASC is not fully initialized)"));
+		return;
+	}
+
+	const ANexusCharacterBase* OwnerChar = Cast<ANexusCharacterBase>(GetOwner());
+	if (OwnerChar && OwnerChar->IsCorpse())
+	{
 		return;
 	}
 	
@@ -1004,17 +1011,23 @@ void UAC_EquipmentComponent::Server_UseActiveUtility_Implementation()
 	}
 	NextUtilityUseTime = Now + Slot.Item->UseCooldown;
 	
-	for (TSubclassOf<UGameplayEffect> EffectClass : Slot.Item -> UseEffects)
+	for (TSubclassOf<UGameplayEffect> EffectClass : Slot.Item->UseEffects)
 	{
 		if (!EffectClass)
 		{
 			continue;
 		}
+		
 		FGameplayEffectContextHandle Context = CachedASC->MakeEffectContext();
 		FGameplayEffectSpecHandle Spec = CachedASC->MakeOutgoingSpec(EffectClass, 1.f, Context);
-		if (Spec.IsValid())
+		
+		if (Spec.IsValid() && Spec.Data.IsValid())
 		{
 			CachedASC->ApplyGameplayEffectSpecToSelf(*Spec.Data.Get());
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("Server_UseActiveUtility: Failed to create valid GameplayEffectSpec for effect: %s"), *GetNameSafe(EffectClass));
 		}
 	}
 	
