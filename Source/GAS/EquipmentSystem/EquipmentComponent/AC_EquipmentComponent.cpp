@@ -1135,7 +1135,7 @@ void UAC_EquipmentComponent::Server_SwapUtilitySlots_Implementation(int32 SlotA,
 
 void UAC_EquipmentComponent::OnRep_WeaponSlots()
 {
-	OnWeaponSlitsChanged.Broadcast();
+	OnWeaponSlotsChanged.Broadcast();
 }
 
 UEquipmentDataAsset* UAC_EquipmentComponent::GetWeaponSlotItem(int32 SlotIndex) const
@@ -1268,4 +1268,71 @@ void UAC_EquipmentComponent::ToggleWeaponSlot(int32 SlotIndex)
 		//その武器を持つ。既に持っていれば仕舞う。別のものを持っていれば持ち替える。
 		WeaponComp->ToggleWeaponInstance(WeaponSlotActors[SlotIndex]);
 	}
+}
+
+bool UAC_EquipmentComponent::Internal_removeWeaponSlot(int32 SlotIndex, UEquipmentDataAsset*& OutItem)
+{
+	if (!WeaponSlots.IsValidIndex(SlotIndex) || !WeaponSlots[SlotIndex])
+	{
+		return false;
+	}
+	
+	OutItem = WeaponSlots[SlotIndex];
+	ClearWeaponSlotActor(SlotIndex);
+	WeaponSlots[SlotIndex] = nullptr;
+	OnRep_WeaponSlots();
+	return true;
+}
+
+void UAC_EquipmentComponent::RequestTransferWeaponFromRemote(UAC_EquipmentComponent* RemoteComponent, int32 SlotIndex)
+{
+	Server_TransferWeaponFromRemote(RemoteComponent,SlotIndex);
+}
+
+//プレイヤー自身のコンポーネントから呼ばれる
+void UAC_EquipmentComponent::Server_TransferWeaponFromRemote_Implementation(UAC_EquipmentComponent* RemoteComponent,
+	int32 SlotIndex)
+{
+	if (!RemoteComponent || RemoteComponent == this || !IsValidLootTarget(RemoteComponent))
+	{
+		return;
+	}
+	
+	UEquipmentDataAsset* Peek = RemoteComponent->GetWeaponSlotItem(SlotIndex);
+	if (!Peek)
+	{
+		return;
+	}
+	
+	// 先に自分へ入れる。入らなければ何も変えずに失敗するので、死体側の武器は消えない
+	if (!AddItemToInventory(Peek,1))
+	{
+		return;
+	}
+	
+	UEquipmentDataAsset* Removed = nullptr;
+	RemoteComponent->Internal_removeWeaponSlot(SlotIndex,Removed);
+}
+
+void UAC_EquipmentComponent::RequestSwapWeaponSlots(int32 SlotA, int32 SlotB)
+{
+	Server_SwapWeaponSlots(SlotA,SlotB);
+}
+
+void UAC_EquipmentComponent::Server_SwapWeaponSlots_Implementation(int32 SlotA, int32 SlotB)
+{
+	if (SlotA == SlotB || !WeaponSlots.IsValidIndex(SlotA) || !WeaponSlots.IsValidIndex(SlotB))
+	{
+		return;
+	}
+	if (!WeaponSlots[SlotA] && !WeaponSlots[SlotB])
+	{
+		// 両方空
+		return;
+	}
+	
+	// 武器のActorは、入れ替えずに、スロットとの対応だけを入れ替える。手に持っている物は変わらない
+	WeaponSlots.Swap(SlotA,SlotB);
+	WeaponSlotActors.Swap(SlotA,SlotB);
+	OnRep_WeaponSlots();
 }

@@ -18,7 +18,7 @@ class AWeaponBase;
 //イベントディスパッチャーの宣言
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnEquipmentChanged);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnUtilityChanged);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnWeaponSlitsChanged);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnWeaponSlotsChanged);
 
 // 装備中のアイテムとそのアイテムによって付与されたエフェクトを管理する構造体
 USTRUCT(BlueprintType)
@@ -144,7 +144,7 @@ public:
 	
 	//イベントディスパッチの定義FOnWeaponSlitsChanged)の変数
 	UPROPERTY(BlueprintAssignable,Category="Weapon")
-	FOnWeaponSlitsChanged OnWeaponSlitsChanged;
+	FOnWeaponSlotsChanged OnWeaponSlotsChanged;
 	
 public:
 	
@@ -307,6 +307,21 @@ public:
 	// 1キー・2キー：スロットの武器を持つ／仕舞う。サーバーでのみ動く（GAから呼ぶ。EquipWeaponと同じ扱い）
 	UFUNCTION(BlueprintCallable,Category="Weapon")
 	void ToggleWeaponSlot(int32 SlotIndex);
+	
+	// サーバー専用：武器スロットの中身を取り出す（死体から回収する時に使う）
+	bool Internal_removeWeaponSlot(int32 SlotIndex,UEquipmentDataAsset*& OutItem);
+	
+	// 死体の武器スロットを、プレイヤー自身のインベントリへ移す（プレイヤー自身のコンポーネントから呼ぶこと）
+	UFUNCTION(BlueprintCallable,Category="Weapon")
+	void RequestTransferWeaponFromRemote(UAC_EquipmentComponent* RemoteComponent,int32 SlotIndex);
+	UFUNCTION(Server,Reliable)
+	void Server_TransferWeaponFromRemote(UAC_EquipmentComponent* RemoteComponent,int32 SlotIndex);
+	
+	// 左右の武器スロットの入れ替え
+	UFUNCTION(BlueprintCallable,Category="Weapon")
+	void RequestSwapWeaponSlots(int32 SlotA, int32 SlotB);
+	UFUNCTION(Server,Reliable)
+	void Server_SwapWeaponSlots(int32 SlotA, int32 SlotB);
 	
 protected:
 
