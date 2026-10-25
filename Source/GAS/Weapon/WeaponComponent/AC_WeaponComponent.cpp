@@ -404,8 +404,9 @@ void UAC_WeaponComponent::RemoveWeaponActor(AWeaponBase* Weapon)
 		return;
 	}
 	
-	//武器を装備していたら装備解除関数を呼ぶ
-	if (EquippedWeapon == Weapon)
+	// 生きている時だけ、仕舞う動作（ABP・モンタージュ）を行う。死体には触らない
+	const bool Corpse = IsValid(OwningCharacter) && OwningCharacter->IsCorpse();
+	if (EquippedWeapon == Weapon && !Corpse)
 	{
 		UnequipWeapon();
 	}
